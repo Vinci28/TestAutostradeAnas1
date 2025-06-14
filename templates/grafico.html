@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Grafico Storico</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .grafici-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .grafico-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .grafico-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .grafico-title {
+      font-weight: bold;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .reset-btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .chart-container {
+      flex: 1;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+
+    @media (max-width: 1000px) {
+      .grafici-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1 id="titolo-tratto">Grafico Storico</h1>
+
+  <div class="grafici-container">
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Temperatura (°C)</span>
+        <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+      </div>
+      <div class="chart-container"><canvas id="temp"></canvas></div>
+    </div>
+
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Precipitazione (mm)</span>
+        <button class="reset-btn" onclick="resetZoom('prec')">Reset Zoom</button>
+      </div>
+      <div class="chart-container"><canvas id="prec"></canvas></div>
+    </div>
+
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Velocità Vento (km/h)</span>
+        <button class="reset-btn" onclick="resetZoom('wind')">Reset Zoom</button>
+      </div>
+      <div class="chart-container"><canvas id="wind"></canvas></div>
+    </div>
+
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Prob. Precipitazione (%)</span>
+        <button class="reset-btn" onclick="resetZoom('prob')">Reset Zoom</button>
+      </div>
+      <div class="chart-container"><canvas id="prob"></canvas></div>
+    </div>
+  </div>
+
+  <script>
+    const chartRefs = {};
+
+    function resetZoom(id) {
+      if (chartRefs[id]) {
+        chartRefs[id].resetZoom();
+        console.log(`🔄 Zoom reset per grafico: ${id}`);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tratto = urlParams.get('tratto');
+      const startDate = urlParams.get('start_date');
+      const endDate = urlParams.get('end_date');
+
+      console.log("📤 Inizio caricamento grafici per tratto:", tratto);
+      console.log("🕒 Intervallo:", startDate, "→", endDate);
+
+      document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto}`;
+
+      fetch(`/api/dati_tratto?tratto=${encodeURIComponent(tratto)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`)
+        .then(res => {
+          if (!res.ok) {
+            console.error("❌ Errore nella risposta dell'API:", res.status);
+            throw new Error("Errore nella risposta dell'API");
+          }
+          return res.json();
+        })
+        .then(dati => {
+          console.log(`📥 Ricevuti ${dati.length} punti meteo`);
+          if (!dati.length) {
+            alert("Nessun dato disponibile per il tratto selezionato.");
+            return;
+          }
+          creaGrafici(dati);
+        })
+        .catch(err => {
+          console.error("💥 Errore nel caricamento dei dati:", err);
+          alert("Errore nel caricamento dei dati meteo.");
+        });
+    });
+
+    function creaGrafici(dati) {
+      console.log("🧩 Creo i grafici per", dati.length, "punti");
+
+        const labels = dati.map(d => {
+        const date = new Date(d.time);
+        return date.toLocaleString('it-IT', { timeZone: 'UTC' });
+});
+
+      const config = (label, data, color) => ({
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            borderColor: color,
+            backgroundColor: color + '22',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: 'x'
+              },
+              zoom: {
+                wheel: {
+                  enabled: true
+                },
+                pinch: {
+                  enabled: true
+                },
+                mode: 'x'
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                autoSkip: true,
+                maxTicksLimit: 12,
+                maxRotation: 45,
+                minRotation: 0
+              }
+            },
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      chartRefs['temp'] = new Chart(document.getElementById('temp'), config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545'));
+      chartRefs['prec'] = new Chart(document.getElementById('prec'), config('Precipitazione (mm)', dati.map(d => d.precipitation), '#007bff'));
+      chartRefs['wind'] = new Chart(document.getElementById('wind'), config('Vento (km/h)', dati.map(d => d.windspeed), '#28a745'));
+      chartRefs['prob'] = new Chart(document.getElementById('prob'), config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107'));
+    }
+  </script>
+</body>
+</html>
