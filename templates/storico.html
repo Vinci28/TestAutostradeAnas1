@@ -4,24 +4,62 @@
     <title>Storico - Tratti Stradali</title>
     <meta charset="utf-8" />
     <style>
-        html, body { height: 100%; margin: 0; font-family: sans-serif; }
-        #sidebar { width: 400px; background: #f0f0f0; overflow-y: auto; padding: 10px; height: 100vh; float: left; }
-        #map { height: 100vh; margin-left: 400px; }
-        .tratto-item { cursor: pointer; margin-bottom: 8px; padding: 4px; border-bottom: 1px solid #ddd; }
-        .tratto-item:hover { background: #e0e0e0; }
-        .tratto-name { font-weight: bold; }
-        .tratto-length { color: #555; font-size: 0.9em; }
-        .tratto-file { color: #006400; font-size: 0.8em; }
-        #searchBar, #startDate, #endDate {
-            width: 100%;
-            padding: 6px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        #sidebar {
+            width: 400px;
+            background: #1e1e1e;
+            overflow-y: auto;
+            padding: 10px;
+            height: 100vh;
+            float: left;
+            border-right: 1px solid #333;
+        }
+        #map {
+            height: 100vh;
+            margin-left: 400px;
+            background-color: #121212;
+        }
+        .tratto-item {
+            cursor: pointer;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            background-color: #252525;
             border-radius: 4px;
+        }
+        .tratto-item:hover {
+            background: #333;
+        }
+        .tratto-name {
+            font-weight: bold;
+            color: #f0f0f0;
+        }
+        .tratto-length {
+            color: #aaa;
+            font-size: 0.9em;
+        }
+        .tratto-file {
+            color: #4CAF50;
+            font-size: 0.8em;
+        }
+        #searchBar {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background-color: #252525;
+            color: #e0e0e0;
         }
         #toggleButton {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             margin-bottom: 10px;
             background: #007bff;
             color: white;
@@ -30,16 +68,32 @@
             cursor: pointer;
             font-size: 14px;
         }
-        #toggleButton:hover { background: #0056b3; }
+        #toggleButton:hover {
+            background: #0056b3;
+        }
+        h2 {
+            color: #f0f0f0;
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        /* Leaflet Popup Styles for Dark Theme */
+        .leaflet-popup-content-wrapper {
+            background-color: #252525; /* Dark background */
+            color: #e0e0e0; /* Light text color */
+            border-radius: 4px;
+        }
+        .leaflet-popup-tip {
+            background-color: #252525; /* Dark background for the tip */
+        }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ardhi/Leaflet.Dark@1.0.1/dist/leaflet-dark.css" />
 </head>
 <body>
     <div id="sidebar">
         <h2>Tratti Storici</h2>
         <input type="text" id="searchBar" placeholder="Cerca tratto..." />
-        <input type="date" id="startDate" placeholder="Data inizio" />
-        <input type="date" id="endDate" placeholder="Data fine" />
         <button id="toggleButton">Nascondi Tratti</button>
         <div id="tratti-list"></div>
     </div>
@@ -47,12 +101,20 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/ardhi/Leaflet.Dark@1.0.1/dist/leaflet-dark.js"></script>
 
     <script>
-        const map = L.map('map').setView([41.9, 12.4], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        const map = L.map('map', {
+            center: [41.9, 12.4],
+            zoom: 11,
+            layers: [
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                })
+            ]
+        });
 
         const polylineGroup = L.featureGroup().addTo(map);
         let polylines = [];
@@ -95,30 +157,36 @@
                             weight: 5
                         }).addTo(polylineGroup);
 
-                        polyline.bindPopup(`<b>${tratto.nome}</b><br/>Lunghezza: ${lengthKm} km`);
+                        // Popup content updated for dark theme visibility
+                        polyline.bindPopup(`
+                            <div style="color: #000000;">
+                                <b>${tratto.nome}</b><br/>
+                                Lunghezza: ${lengthKm} km<br/>
+                                <a href="/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalità=storico"
+                                   target="_blank"
+                                   style="color: #1200ff; text-decoration: none;"> Apri grafico Storico
+                                </a>
+                            </div>
+                        `);
                         polylines.push(polyline);
 
                         // Click sull'elemento della lista
                         item.addEventListener('click', () => {
                             map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
-                            polyline.setStyle({ color: 'red', weight: 6 });
+                            polyline.setStyle({ color: '#ff4444', weight: 6 });
                             setTimeout(() => {
                                 polyline.setStyle({ color: `hsl(${hue}, 70%, 50%)`, weight: 5 });
                             }, 1000);
                             polyline.openPopup();
-
-                            // Apri pagina grafico con intervallo selezionato
                             apriGraficoStorico(tratto.nome);
                         });
 
                         // Click direttamente sulla mappa
                         polyline.on('click', () => {
-                            polyline.setStyle({ color: 'red', weight: 6 });
+                            polyline.setStyle({ color: '#ff4444', weight: 6 });
                             setTimeout(() => {
                                 polyline.setStyle({ color: `hsl(${hue}, 70%, 50%)`, weight: 5 });
                             }, 1000);
-
-                            // Apri pagina grafico con intervallo selezionato
                             apriGraficoStorico(tratto.nome);
                         });
 
@@ -136,7 +204,7 @@
                                     if (files && files.length > 0) {
                                         const link = item.querySelector(".tratto-file");
                                         const file = files[0];
-                                        link.innerHTML = `<a href='/grafico?punto=${tratto.nome}' target='_blank'>Apri grafico: ${file}</a>`;
+                                        link.innerHTML = `<a href='/grafico?tratto=${tratto.nome}&modalità=storico' target='_blank' style="color: #4CAF50;">Apri grafico: ${file}</a>`;
                                     }
                                 })
                                 .catch(err => {
@@ -162,19 +230,9 @@
         }
 
         function apriGraficoStorico(nomeTratto) {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-
-            if (startDate && endDate) {
-                // Aggiungi l'orario mezzanotte automaticamente
-                const startDateTime = `${startDate}T00:00:00`;
-                const endDateTime = `${endDate}T23:59:59`;
-
-                const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalità=storico&start_date=${encodeURIComponent(startDateTime)}&end_date=${encodeURIComponent(endDateTime)}`;
-                window.open(url, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
-            } else {
-                alert('Seleziona un intervallo di tempo valido per visualizzare i dati storici.');
-            }
+            const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalità=storico`;
+            // Removed width, height, and other features to encourage opening in a new tab
+            window.open(url, '_blank');
         }
 
         caricaTratti();

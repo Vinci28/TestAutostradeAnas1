@@ -8,62 +8,116 @@
             height: 100%;
             margin: 0;
             font-family: sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
         }
         #sidebar {
             width: 350px;
-            background: #f0f0f0;
+            background: #1e1e1e;
             overflow-y: auto;
-            padding: 10px;
+            padding: 15px;
             height: 100vh;
             float: left;
+            border-right: 1px solid #333;
         }
         #map {
             height: 100vh;
             margin-left: 350px;
+            background-color: #121212;
         }
         .tratto-item {
             cursor: pointer;
-            margin-bottom: 8px;
-            padding: 4px;
-            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #252525;
+            border: 1px solid #333;
+            transition: all 0.2s ease;
         }
         .tratto-item:hover {
-            background: #e0e0e0;
+            background: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         .tratto-name {
             font-weight: bold;
+            color: #f0f0f0;
+            margin-bottom: 5px;
         }
         .tratto-length {
-            color: #555;
+            color: #aaa;
             font-size: 0.9em;
+            margin-bottom: 5px;
         }
         .tratto-file {
-            color: #006400;
-            font-size: 0.8em;
+            color: #4CAF50;
+            font-size: 0.85em;
         }
         #searchBar {
             width: 100%;
-            padding: 6px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background-color: #252525;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        #searchBar::placeholder {
+            color: #777;
         }
         #toggleButton {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
+            padding: 12px;
+            margin-bottom: 15px;
             background: #007bff;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: bold;
+            transition: background 0.2s ease;
         }
         #toggleButton:hover {
-            background: #0056b3;
+            background: #0069d9;
+        }
+        h2 {
+            color: #f0f0f0;
+            margin-top: 0;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        #tratti-list {
+            padding-right: 5px;
+        }
+        /* Scrollbar styling */
+        #sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+        #sidebar::-webkit-scrollbar-track {
+            background: #252525;
+        }
+        #sidebar::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+        #sidebar::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+        /* Leaflet Popup Styles for Dark Theme */
+        .leaflet-popup-content-wrapper {
+            background-color: #252525; /* Dark background */
+            color: #e0e0e0; /* Light text color */
+            border-radius: 4px;
+        }
+        .leaflet-popup-tip {
+            background-color: #252525; /* Dark background for the tip */
         }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ardhi/Leaflet.Dark@1.0.1/dist/leaflet-dark.css" />
 </head>
 <body>
     <div id="sidebar">
@@ -76,12 +130,21 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/ardhi/Leaflet.Dark@1.0.1/dist/leaflet-dark.js"></script>
 
     <script>
-        const map = L.map('map').setView([41.9, 12.4], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        // Inizializza mappa con tema dark
+        const map = L.map('map', {
+            center: [41.9, 12.4],
+            zoom: 11,
+            layers: [
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                })
+            ]
+        });
 
         const polylineGroup = L.layerGroup().addTo(map);
         let polylines = [];
@@ -121,43 +184,89 @@
                         const hue = (index * 47) % 360;
                         const polyline = L.polyline(latlngs, {
                             color: `hsl(${hue}, 70%, 50%)`,
-                            weight: 5
+                            weight: 5,
+                            opacity: 0.8
                         }).addTo(polylineGroup);
-                        polyline.bindPopup(`<b>${tratto.nome}</b><br/>Lunghezza: ${lengthKm} km`);
+
+                        // Popup content updated for dark theme visibility
+                        polyline.bindPopup(`
+                            <div style="color: #e0e0e0;">
+                                <b>${tratto.nome}</b><br/>
+                                Lunghezza: ${lengthKm} km<br/>
+                                <a href="/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalità=previsionale"
+                                   target="_blank"
+                                   style="color: #66ccff; text-decoration: none;"> Apri grafico previsionale
+                                </a>
+                            </div>
+                        `);
                         polylines.push(polyline);
 
+                        // Click sull'elemento della lista: open popup AND open graph in new tab
                         item.addEventListener('click', () => {
                             map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
-                            polyline.setStyle({ color: 'red', weight: 6 });
+                            polyline.setStyle({ color: '#ff4444', weight: 6 });
                             setTimeout(() => {
                                 polyline.setStyle({ color: `hsl(${hue}, 70%, 50%)`, weight: 5 });
                             }, 1000);
                             polyline.openPopup();
-
-                            // Apri pagina grafico con l'ultimo orario disponibile
-                            const url = `/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalità=previsionale`;
-                            window.open(url, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+                            apriGraficoPrevisionale(tratto.nome); // Open graph in new tab
                         });
 
-                        // Aggiungi anche il click sulla polyline
+                        // Click direttamente sulla polyline: open graph in new tab
                         polyline.on('click', () => {
-                            const url = `/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalità=previsionale`;
-                            window.open(url, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+                            // No need for e.originalEvent.preventDefault() if we're opening a new tab
+                            apriGraficoPrevisionale(tratto.nome); // Open graph in new tab
                         });
+
+                        // Carica info sui file disponibili
+                        const info = convertiStradaENumero(tratto.nome);
+                        if (info) {
+                            fetch(`/api/files/${info.strada}/${info.numero}`)
+                                .then(res => {
+                                    if (!res.ok) {
+                                        item.querySelector(".tratto-file").textContent = "Nessun dato disponibile";
+                                        return null;
+                                    }
+                                    return res.json();
+                                })
+                                .then(files => {
+                                    if (files && files.length > 0) {
+                                        const linkSpan = item.querySelector(".tratto-file");
+                                        const file = files[0];
+                                        // The link now calls apriGraficoPrevisionale on click
+                                        linkSpan.innerHTML = `
+                                            <a href='javascript:void(0);'
+                                               onclick='apriGraficoPrevisionale("${tratto.nome}")'
+                                               style="color: #4CAF50; text-decoration: none;">
+                                               Ultimo aggiornamento: ${file.split('_')[3].replace('.jsons', '')}
+                                            </a>`;
+                                    }
+                                })
+                                .catch(err => {
+                                    console.warn("Errore nel caricamento dei file:", err);
+                                    item.querySelector(".tratto-file").textContent = "Errore nel caricamento";
+                                });
+                        }
                     });
 
                     if (polylineGroup.getLayers().length > 0) {
-                        map.fitBounds(polylineGroup.getBounds());
+                        map.fitBounds(polylineGroup.getBounds(), { padding: [50, 50] });
                     }
                 })
                 .catch(error => {
                     console.error("Errore nel caricamento dei tratti:", error);
-                    //alert("Si è verificato un errore nel caricamento dei tratti stradali.");
                 });
+        }
+
+        // New function to open the chart in a new tab without specific window features
+        function apriGraficoPrevisionale(nomeTratto) {
+            const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalità=previsionale`;
+            window.open(url, '_blank'); // Opens in a new tab
         }
 
         caricaTratti();
 
+        // Gestione ricerca
         document.getElementById('searchBar').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
             items.forEach((item) => {
@@ -166,15 +275,18 @@
             });
         });
 
+        // Toggle visibilità tratti
         let trattiVisible = true;
         document.getElementById('toggleButton').addEventListener('click', () => {
             const btn = document.getElementById('toggleButton');
             if (trattiVisible) {
                 map.removeLayer(polylineGroup);
                 btn.textContent = 'Mostra Tratti';
+                btn.style.background = '#28a745';
             } else {
                 map.addLayer(polylineGroup);
                 btn.textContent = 'Nascondi Tratti';
+                btn.style.background = '#007bff';
             }
             trattiVisible = !trattiVisible;
         });

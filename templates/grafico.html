@@ -9,12 +9,47 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f0f2f5;
+      background: #121212;
       padding: 20px;
+      color: #e0e0e0;
     }
 
     h1 {
       margin-bottom: 20px;
+      color: #f0f0f0;
+    }
+
+    .filtri-container {
+      background: #1e1e1e;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      border: 1px solid #333;
+    }
+    .filtri-container label {
+      font-weight: bold;
+    }
+    .filtri-container input {
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: #252525;
+      color: #e0e0e0;
+    }
+    .filtri-container button {
+      padding: 8px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .filtri-container button:hover {
+      background-color: #0056b3;
     }
 
     .grafici-container {
@@ -24,12 +59,13 @@
     }
 
     .grafico-card {
-      background: #fff;
+      background: #1e1e1e;
       border-radius: 10px;
       padding: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       display: flex;
       flex-direction: column;
+      border: 1px solid #333;
     }
 
     .grafico-header {
@@ -42,7 +78,7 @@
     .grafico-title {
       font-weight: bold;
       font-size: 16px;
-      color: #333;
+      color: #f0f0f0;
     }
 
     .reset-btn {
@@ -73,6 +109,18 @@
 </head>
 <body>
   <h1 id="titolo-tratto">Grafico Storico</h1>
+
+  <div class="filtri-container">
+    <div>
+      <label for="filtro-inizio">Da:</label>
+      <input type="date" id="filtro-inizio">
+    </div>
+    <div>
+      <label for="filtro-fine">A:</label>
+      <input type="date" id="filtro-fine">
+    </div>
+    <button id="applica-filtro">Applica Filtro</button>
+  </div>
 
   <div class="grafici-container">
     <div class="grafico-card">
@@ -121,43 +169,72 @@
     document.addEventListener("DOMContentLoaded", () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tratto = urlParams.get('tratto');
-      const startDate = urlParams.get('start_date');
-      const endDate = urlParams.get('end_date');
-
-      console.log("📤 Inizio caricamento grafici per tratto:", tratto);
-      console.log("🕒 Intervallo:", startDate, "→", endDate);
 
       document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto}`;
 
-      fetch(`/api/dati_tratto?tratto=${encodeURIComponent(tratto)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`)
+      // Carica tutti i dati inizialmente
+      caricaDati(tratto, null, null);
+
+      // Gestione filtri
+      document.getElementById('applica-filtro').addEventListener('click', () => {
+        const inizio = document.getElementById('filtro-inizio').value;
+        const fine = document.getElementById('filtro-fine').value;
+
+        if (!inizio || !fine) {
+            alert("Per favore, seleziona sia la data di inizio che quella di fine.");
+            return;
+        }
+        if (new Date(fine) < new Date(inizio)) {
+            alert("La data di fine non può essere precedente alla data di inizio.");
+            return;
+        }
+
+        caricaDati(tratto, inizio, fine);
+      });
+    });
+
+    function caricaDati(tratto, startDate, endDate) {
+      let url = `/api/dati_tratto?tratto=${encodeURIComponent(tratto)}`;
+
+      if (startDate && endDate) {
+        url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+      }
+
+      // Distrugge i grafici esistenti per evitare sovrapposizioni
+      Object.values(chartRefs).forEach(chart => {
+          if (chart && typeof chart.destroy === 'function') {
+              chart.destroy();
+          }
+      });
+
+      fetch(url)
         .then(res => {
           if (!res.ok) {
-            console.error("❌ Errore nella risposta dell'API:", res.status);
-            throw new Error("Errore nella risposta dell'API");
+              return res.json().then(err => { throw new Error(err.errore || "Errore nella risposta dell'API") });
           }
           return res.json();
         })
         .then(dati => {
           console.log(`📥 Ricevuti ${dati.length} punti meteo`);
           if (!dati.length) {
-            alert("Nessun dato disponibile per il tratto selezionato.");
+            alert("Nessun dato disponibile per il tratto e l'intervallo selezionato.");
             return;
           }
           creaGrafici(dati);
         })
         .catch(err => {
           console.error("💥 Errore nel caricamento dei dati:", err);
-          alert("Errore nel caricamento dei dati meteo.");
+          alert(`Errore nel caricamento dei dati meteo: ${err.message}`);
         });
-    });
+    }
 
     function creaGrafici(dati) {
       console.log("🧩 Creo i grafici per", dati.length, "punti");
 
-        const labels = dati.map(d => {
+      const labels = dati.map(d => {
         const date = new Date(d.time);
         return date.toLocaleString('it-IT', { timeZone: 'UTC' });
-});
+      });
 
       const config = (label, data, color) => ({
         type: 'line',
@@ -198,13 +275,13 @@
             x: {
               ticks: {
                 autoSkip: true,
-                maxTicksLimit: 12,
+                maxTicksLimit: 15,
                 maxRotation: 45,
                 minRotation: 0
               }
             },
             y: {
-              beginAtZero: true
+              beginAtZero: false
             }
           }
         }
