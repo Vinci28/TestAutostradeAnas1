@@ -76,6 +76,7 @@ def search_tratti():
     """
     Endpoint per la ricerca autocomplete dei tratti.
     - Se la ricerca matcha il pattern "STRADA Km X+...", cerca per range chilometrico.
+    - Se la ricerca matcha "km X+" e il contesto 'strada' è presente, combina i due.
     - Altrimenti, usa il parametro 'strada' per limitare la ricerca a una singola autostrada.
     """
     query_param = request.args.get('search', '')
@@ -92,23 +93,39 @@ def search_tratti():
         sql_query = ""
         params = ()
 
-        # Logica per la ricerca a range chilometrico (es. "A90 Km 1+...")
-        km_pattern = re.compile(r'^(?P<road>\S+)\s+Km\s+(?P<km_major>\d+)', re.IGNORECASE)
-        match = km_pattern.match(query_param)
+        # Pattern per query complete (es. "A90 Km 2+")
+        full_km_pattern = re.compile(r'^(?P<road>\S+)\s+Km\s+(?P<km_major>\d+)', re.IGNORECASE)
+        # Pattern per query abbreviate (es. "km 2+")
+        shorthand_km_pattern = re.compile(r'^Km\s+(?P<km_major>\d+)', re.IGNORECASE)
 
-        if match:
-            road_name = match.group('road')
-            km_major = match.group('km_major')
-            table_for_km_search = get_table_from_punto(road_name)
+        full_match = full_km_pattern.match(query_param)
+        shorthand_match = shorthand_km_pattern.match(query_param)
 
-            if table_for_km_search:
+        if full_match:
+            # Priorità 1: L'utente ha inserito una query completa
+            road_name = full_match.group('road')
+            km_major = full_match.group('km_major')
+            table = get_table_from_punto(road_name)
+            if table:
                 search_term = f"{road_name.upper()} Km {km_major}+%"
-                sql_query = f"SELECT DISTINCT tratto FROM {table_for_km_search} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
+                sql_query = f"SELECT DISTINCT tratto FROM {table} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
                 params = (search_term,)
-                logging.info(f"🔎 Ricerca per range chilometrico: '{search_term}' nella tabella {table_for_km_search}")
+                logging.info(f"🔎 Ricerca per range chilometrico COMPLETO: '{search_term}'")
+
+        elif shorthand_match and strada_param:
+            # Priorità 2: L'utente ha usato una scorciatoia e il contesto della strada è disponibile
+            km_major = shorthand_match.group('km_major')
+            road_name_from_context = strada_param
+            table = get_table_from_punto(road_name_from_context)
+            if table:
+                # Costruisce la query completa usando il contesto
+                search_term = f"{road_name_from_context.upper()} Km {km_major}+%"
+                sql_query = f"SELECT DISTINCT tratto FROM {table} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
+                params = (search_term,)
+                logging.info(f"🔎 Ricerca per range chilometrico SHORTHAND: '{search_term}'")
 
         else:
-            # Logica di ricerca contestuale standard
+            # Priorità 3: Ricerca contestuale standard
             table_to_search = get_table_from_punto(strada_param)
             search_term = f"{query_param}%"
 
@@ -162,7 +179,7 @@ def lista_file_per_tratto(strada, tratto):
 def grafico():
     tratto = request.args.get('tratto')
     if not tratto:
-        return render_template('grafico.html', punto=None)
+        return render_template('grafico.html', tratto=None)
 
     conn = None
     try:
