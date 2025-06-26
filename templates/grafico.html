@@ -113,14 +113,29 @@
       font-size: 16px;
       color: #f0f0f0;
     }
-    .reset-btn {
-      background-color: #007bff;
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+    .reset-btn, .report-btn {
       color: white;
       border: none;
       padding: 5px 10px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 13px;
+    }
+    .reset-btn {
+        background-color: #007bff;
+    }
+    .report-btn {
+        background-color: #28a745;
+    }
+    .reset-btn:hover {
+        background-color: #0056b3;
+    }
+    .report-btn:hover {
+        background-color: #218838;
     }
     .chart-container { flex: 1; }
     canvas {
@@ -196,7 +211,10 @@
     <div class="grafico-card">
       <div class="grafico-header">
         <span class="grafico-title">Temperatura (°C)</span>
-        <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('temp')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+        </div>
       </div>
       <div class="chart-container"><canvas id="temp"></canvas></div>
       <div class="custom-scrollbar" id="scrollbar-temp"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
@@ -204,7 +222,10 @@
     <div class="grafico-card">
       <div class="grafico-header">
         <span class="grafico-title">Precipitazione (mm)</span>
-        <button class="reset-btn" onclick="resetZoom('prec')">Reset Zoom</button>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('prec')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('prec')">Reset Zoom</button>
+        </div>
       </div>
       <div class="chart-container"><canvas id="prec"></canvas></div>
       <div class="custom-scrollbar" id="scrollbar-prec"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
@@ -212,7 +233,10 @@
     <div class="grafico-card">
       <div class="grafico-header">
         <span class="grafico-title">Velocità Vento (m/s)</span>
-        <button class="reset-btn" onclick="resetZoom('wind')">Reset Zoom</button>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('wind')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('wind')">Reset Zoom</button>
+        </div>
       </div>
       <div class="chart-container"><canvas id="wind"></canvas></div>
       <div class="custom-scrollbar" id="scrollbar-wind"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
@@ -220,7 +244,10 @@
     <div class="grafico-card">
       <div class="grafico-header">
         <span class="grafico-title">Prob. Precipitazione (%)</span>
-        <button class="reset-btn" onclick="resetZoom('prob')">Reset Zoom</button>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('prob')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('prob')">Reset Zoom</button>
+        </div>
       </div>
       <div class="chart-container"><canvas id="prob"></canvas></div>
       <div class="custom-scrollbar" id="scrollbar-prob"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
@@ -229,6 +256,48 @@
 
   <script>
     const chartRefs = {};
+    let datiPerReport = [];
+
+    function downloadChartCSV(chartId) {
+        if (!datiPerReport || datiPerReport.length === 0) {
+            alert('Nessun dato disponibile per generare il report.');
+            return;
+        }
+
+        const reportConfig = {
+            'temp': { header: 'Time,Temperatura_C', columns: ['time', 'temperature'] },
+            'prec': { header: 'Time,Precipitazione_mm', columns: ['time', 'precipitation'] },
+            'wind': { header: 'Time,Vento_ms', columns: ['time', 'windspeed'] },
+            'prob': { header: 'Time,Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
+        };
+
+        const config = reportConfig[chartId];
+        if (!config) return;
+
+        let csvRows = [config.header];
+        datiPerReport.forEach(row => {
+            const time = new Date(row[config.columns[0]]).toISOString().slice(0, 19).replace('T', ' ');
+            const value = row[config.columns[1]];
+            csvRows.push(`${time},${value}`);
+        });
+        const csvContent = csvRows.join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            const urlParams = new URLSearchParams(window.location.search);
+            const tratto = urlParams.get('tratto') || 'report';
+            const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
 
     function setupCustomScrollbar(chart, scrollbarElement, allData) {
         const handle = scrollbarElement.querySelector('.scrollbar-handle');
@@ -339,7 +408,6 @@
       const tratto = urlParams.get('tratto');
       document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto || 'N/D'}`;
 
-      // MODIFICA: Estrae l'autostrada corrente per la ricerca contestuale
       let currentRoad = '';
       if (tratto) {
         currentRoad = tratto.split(' ')[0];
@@ -377,7 +445,6 @@
           return;
         }
 
-        // MODIFICA: Aggiunge il parametro 'strada' all'API call
         let apiUrl = `/api/tratti?search=${encodeURIComponent(query)}`;
         if (currentRoad) {
             apiUrl += `&strada=${encodeURIComponent(currentRoad)}`;
@@ -425,6 +492,7 @@
         .then(res => res.ok ? res.json() : res.json().then(err => { throw new Error(err.errore || "Errore API") }))
         .then(dati => {
           if (!dati.length) return alert("Nessun dato disponibile per il tratto e l'intervallo selezionato.");
+          datiPerReport = dati;
           creaGrafici(dati);
         })
         .catch(err => alert(`Errore nel caricamento dei dati: ${err.message}`));
