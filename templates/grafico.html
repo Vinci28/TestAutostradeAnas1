@@ -385,24 +385,26 @@
             const startLeft = handle.offsetLeft;
             const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
 
+            // CORREZIONE: Blocca il livello di zoom all'inizio del trascinamento
+            const scale = chart.scales.x;
+            const totalPoints = allData.length;
+            const initialVisiblePoints = scale.max - scale.min;
+            const scrollableRange = totalPoints - initialVisiblePoints;
+
             const onMouseMove = (moveEvent) => {
-                if (!isDragging) return;
+                if (!isDragging || scrollableRange <= 0) return;
                 moveEvent.preventDefault();
+
                 const deltaX = moveEvent.pageX - startX;
                 let newLeft = startLeft + deltaX;
                 newLeft = Math.max(0, Math.min(newLeft, maxHandleLeft));
                 handle.style.left = `${newLeft}px`;
 
                 const positionPercent = newLeft / maxHandleLeft;
-                const scale = chart.scales.x;
-                const totalPoints = allData.length;
-                const visiblePoints = scale.max - scale.min;
-                const scrollableRange = totalPoints - visiblePoints;
 
-                if (scrollableRange <= 0) return;
-
+                // Usa il livello di zoom iniziale per garantire solo il pan
                 const newMin = positionPercent * scrollableRange;
-                const newMax = newMin + visiblePoints;
+                const newMax = newMin + initialVisiblePoints;
 
                 chart.zoomScale('x', {min: newMin, max: newMax}, 'none');
             };
