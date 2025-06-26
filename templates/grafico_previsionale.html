@@ -7,15 +7,32 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
   <style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden; /* Impedisce lo scorrimento del body */
+        background: #121212;
+    }
     body {
       font-family: Arial, sans-serif;
-      background: #121212;
-      padding: 20px;
       color: #e0e0e0;
     }
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 20px;
+        box-sizing: border-box;
+    }
     h1 {
-      margin-bottom: 20px;
+      margin-top: 0;
+      margin-bottom: 10px;
       color: #f0f0f0;
+      flex-shrink: 0;
+    }
+    #ultimo-download {
+        margin-bottom: 10px;
+        flex-shrink: 0;
     }
     .controlli-superiori {
       display: flex;
@@ -28,6 +45,7 @@
       border: 1px solid #333;
       flex-wrap: wrap;
       gap: 15px;
+      flex-shrink: 0;
     }
     .search-container {
       position: relative;
@@ -87,16 +105,19 @@
     .grafici-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr; /* Righe flessibili */
       gap: 20px;
+      flex-grow: 1; /* Occupa lo spazio rimanente */
+      min-height: 0;
     }
     .grafico-card {
       background: #1e1e1e;
       border-radius: 10px;
       padding: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       display: flex;
       flex-direction: column;
       border: 1px solid #333;
+      min-height: 0;
     }
     .grafico-header {
       display: flex;
@@ -133,16 +154,20 @@
     .report-btn:hover {
         background-color: #218838;
     }
-    .chart-container { flex: 1; }
+    .chart-container {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+    }
     canvas {
-      width: 100% !important;
-      height: 300px !important;
+      /* Altezza e larghezza rimosse */
     }
     .custom-scrollbar {
         position: relative;
         width: 100%;
         height: 20px;
         margin-top: 8px;
+        flex-shrink: 0;
     }
     .scrollbar-track {
         position: absolute;
@@ -176,6 +201,7 @@
   </style>
 </head>
 <body>
+<div class="page-wrapper">
   <h1 id="titolo-tratto">Grafico Previsionale</h1>
   <div id="ultimo-download" class="ultimo-aggiornamento"></div>
 
@@ -237,7 +263,7 @@
       <div class="custom-scrollbar" id="scrollbar-prob"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
     </div>
   </div>
-
+</div>
   <script>
     const chartRefs = {};
     let datiPerReport = [];

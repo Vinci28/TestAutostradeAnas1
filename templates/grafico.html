@@ -7,15 +7,28 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
   <style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden; /* Impedisce lo scorrimento del body */
+        background: #121212;
+    }
     body {
       font-family: Arial, sans-serif;
-      background: #121212;
-      padding: 20px;
       color: #e0e0e0;
     }
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 20px;
+        box-sizing: border-box;
+    }
     h1 {
+      margin-top: 0;
       margin-bottom: 20px;
       color: #f0f0f0;
+      flex-shrink: 0; /* Non si restringe */
     }
     .search-container {
       position: relative;
@@ -76,7 +89,6 @@
       background: #1e1e1e;
       padding: 15px;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       margin-bottom: 20px;
       display: flex;
       align-items: center;
@@ -84,6 +96,7 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 15px;
+      flex-shrink: 0; /* Non si restringe */
     }
     .filtri-container label { font-weight: bold; }
     .filtri-container input {
@@ -102,16 +115,19 @@
     .grafici-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr; /* Righe flessibili */
       gap: 20px;
+      flex-grow: 1; /* Occupa lo spazio rimanente */
+      min-height: 0; /* Cruciale per il corretto funzionamento di flex/grid */
     }
     .grafico-card {
       background: #1e1e1e;
       border-radius: 10px;
       padding: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       display: flex;
       flex-direction: column;
       border: 1px solid #333;
+      min-height: 0; /* Permette al contenuto di restringersi */
     }
     .grafico-header {
       display: flex;
@@ -148,16 +164,20 @@
     .report-btn:hover {
         background-color: #218838;
     }
-    .chart-container { flex: 1; }
+    .chart-container {
+        flex: 1;
+        position: relative; /* Necessario per il canvas */
+        min-height: 0;
+    }
     canvas {
-      width: 100% !important;
-      height: 300px !important;
+      /* Altezza e larghezza rimosse per renderle flessibili */
     }
     .custom-scrollbar {
         position: relative;
         width: 100%;
         height: 20px;
         margin-top: 8px;
+        flex-shrink: 0;
     }
     .scrollbar-track {
         position: absolute;
@@ -186,73 +206,75 @@
   </style>
 </head>
 <body>
-  <h1 id="titolo-tratto">Grafico Storico</h1>
+  <div class="page-wrapper">
+    <h1 id="titolo-tratto">Grafico Storico</h1>
 
-  <div class="filtri-container">
-    <div class="filtri-gruppo-sx">
-      <button id="reset-zoom-globale">Reset Zoom Globale</button>
-      <div>
-        <label for="filtro-inizio">Da:</label>
-        <input type="date" id="filtro-inizio">
+    <div class="filtri-container">
+      <div class="filtri-gruppo-sx">
+        <button id="reset-zoom-globale">Reset Zoom Globale</button>
+        <div>
+          <label for="filtro-inizio">Da:</label>
+          <input type="date" id="filtro-inizio">
+        </div>
+        <div>
+          <label for="filtro-fine">A:</label>
+          <input type="date" id="filtro-fine">
+        </div>
+        <button id="applica-filtro">Applica Filtro</button>
+        <button id="download-report-globale" class="report-btn-global">Scarica Report Globale</button>
       </div>
-      <div>
-        <label for="filtro-fine">A:</label>
-        <input type="date" id="filtro-fine">
+      <div class="search-container">
+        <input type="text" id="search-tratto" placeholder="Cerca un altro tratto..." autocomplete="off">
+        <div id="suggestions-container" class="suggestions-container"></div>
+        <button id="search-button">Cerca</button>
       </div>
-      <button id="applica-filtro">Applica Filtro</button>
-      <button id="download-report-globale" class="report-btn-global">Scarica Report Globale</button>
     </div>
-    <div class="search-container">
-      <input type="text" id="search-tratto" placeholder="Cerca un altro tratto..." autocomplete="off">
-      <div id="suggestions-container" class="suggestions-container"></div>
-      <button id="search-button">Cerca</button>
-    </div>
-  </div>
 
-  <div class="grafici-container">
-    <div class="grafico-card">
-      <div class="grafico-header">
-        <span class="grafico-title">Temperatura (°C)</span>
-        <div class="button-group">
-            <button class="report-btn" onclick="downloadChartCSV('temp')">Scarica Report</button>
-            <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+    <div class="grafici-container">
+      <div class="grafico-card">
+        <div class="grafico-header">
+          <span class="grafico-title">Temperatura (°C)</span>
+          <div class="button-group">
+              <button class="report-btn" onclick="downloadChartCSV('temp')">Scarica Report</button>
+              <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+          </div>
         </div>
+        <div class="chart-container"><canvas id="temp"></canvas></div>
+        <div class="custom-scrollbar" id="scrollbar-temp"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
       </div>
-      <div class="chart-container"><canvas id="temp"></canvas></div>
-      <div class="custom-scrollbar" id="scrollbar-temp"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
-    </div>
-    <div class="grafico-card">
-      <div class="grafico-header">
-        <span class="grafico-title">Precipitazione (mm)</span>
-        <div class="button-group">
-            <button class="report-btn" onclick="downloadChartCSV('prec')">Scarica Report</button>
-            <button class="reset-btn" onclick="resetZoom('prec')">Reset Zoom</button>
+      <div class="grafico-card">
+        <div class="grafico-header">
+          <span class="grafico-title">Precipitazione (mm)</span>
+          <div class="button-group">
+              <button class="report-btn" onclick="downloadChartCSV('prec')">Scarica Report</button>
+              <button class="reset-btn" onclick="resetZoom('prec')">Reset Zoom</button>
+          </div>
         </div>
+        <div class="chart-container"><canvas id="prec"></canvas></div>
+        <div class="custom-scrollbar" id="scrollbar-prec"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
       </div>
-      <div class="chart-container"><canvas id="prec"></canvas></div>
-      <div class="custom-scrollbar" id="scrollbar-prec"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
-    </div>
-    <div class="grafico-card">
-      <div class="grafico-header">
-        <span class="grafico-title">Velocità Vento (m/s)</span>
-        <div class="button-group">
-            <button class="report-btn" onclick="downloadChartCSV('wind')">Scarica Report</button>
-            <button class="reset-btn" onclick="resetZoom('wind')">Reset Zoom</button>
+      <div class="grafico-card">
+        <div class="grafico-header">
+          <span class="grafico-title">Velocità Vento (m/s)</span>
+          <div class="button-group">
+              <button class="report-btn" onclick="downloadChartCSV('wind')">Scarica Report</button>
+              <button class="reset-btn" onclick="resetZoom('wind')">Reset Zoom</button>
+          </div>
         </div>
+        <div class="chart-container"><canvas id="wind"></canvas></div>
+        <div class="custom-scrollbar" id="scrollbar-wind"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
       </div>
-      <div class="chart-container"><canvas id="wind"></canvas></div>
-      <div class="custom-scrollbar" id="scrollbar-wind"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
-    </div>
-    <div class="grafico-card">
-      <div class="grafico-header">
-        <span class="grafico-title">Prob. Precipitazione (%)</span>
-        <div class="button-group">
-            <button class="report-btn" onclick="downloadChartCSV('prob')">Scarica Report</button>
-            <button class="reset-btn" onclick="resetZoom('prob')">Reset Zoom</button>
+      <div class="grafico-card">
+        <div class="grafico-header">
+          <span class="grafico-title">Prob. Precipitazione (%)</span>
+          <div class="button-group">
+              <button class="report-btn" onclick="downloadChartCSV('prob')">Scarica Report</button>
+              <button class="reset-btn" onclick="resetZoom('prob')">Reset Zoom</button>
+          </div>
         </div>
+        <div class="chart-container"><canvas id="prob"></canvas></div>
+        <div class="custom-scrollbar" id="scrollbar-prob"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
       </div>
-      <div class="chart-container"><canvas id="prob"></canvas></div>
-      <div class="custom-scrollbar" id="scrollbar-prob"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
     </div>
   </div>
 
@@ -385,7 +407,6 @@
             const startLeft = handle.offsetLeft;
             const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
 
-            // CORREZIONE: Blocca il livello di zoom all'inizio del trascinamento
             const scale = chart.scales.x;
             const totalPoints = allData.length;
             const initialVisiblePoints = scale.max - scale.min;
@@ -402,7 +423,6 @@
 
                 const positionPercent = newLeft / maxHandleLeft;
 
-                // Usa il livello di zoom iniziale per garantire solo il pan
                 const newMin = positionPercent * scrollableRange;
                 const newMax = newMin + initialVisiblePoints;
 
