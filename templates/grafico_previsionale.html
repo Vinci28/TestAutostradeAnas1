@@ -34,7 +34,7 @@
       display: flex;
       gap: 10px;
     }
-    #reset-zoom-globale, #search-button {
+    #reset-zoom-globale, #search-button, .report-btn-global {
       padding: 8px 15px;
       background-color: #007bff;
       color: white;
@@ -42,8 +42,16 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    #reset-zoom-globale:hover, #search-button:hover {
+    #reset-zoom-globale:hover, #search-button:hover, .report-btn-global:hover {
       background-color: #0056b3;
+    }
+     .report-btn-global {
+        background-color: #ffc107;
+        color: #212529;
+        font-weight: bold;
+    }
+    .report-btn-global:hover {
+        background-color: #e0a800;
     }
     #search-tratto {
       padding: 8px;
@@ -172,7 +180,10 @@
   <div id="ultimo-download" class="ultimo-aggiornamento"></div>
 
   <div class="controlli-superiori">
-    <button id="reset-zoom-globale">Reset Zoom Globale</button>
+    <div class="button-group">
+      <button id="reset-zoom-globale">Reset Zoom Globale</button>
+      <button id="download-report-globale" class="report-btn-global">Scarica Report Globale</button>
+    </div>
     <div class="search-container">
       <input type="text" id="search-tratto" placeholder="Cerca un altro tratto..." autocomplete="off">
       <div id="suggestions-container" class="suggestions-container"></div>
@@ -231,6 +242,45 @@
     const chartRefs = {};
     let datiPerReport = [];
 
+    function triggerDownload(blob, filename) {
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    function downloadGlobalCSV() {
+        if (!datiPerReport || datiPerReport.length === 0) {
+            alert('Nessun dato disponibile per generare il report.');
+            return;
+        }
+
+        const header = 'Time,Temperatura_C,Precipitazione_mm,Vento_ms,Prob_Precipitazione_Percent';
+        let csvRows = [header];
+
+        datiPerReport.forEach(row => {
+            const time = new Date(row.time).toISOString().slice(0, 19).replace('T', ' ');
+            const temp = row.temperature;
+            const prec = row.precipitation;
+            const wind = row.windspeed;
+            const prob = row.precipitation_probability;
+            csvRows.push(`${time},${temp},${prec},${wind},${prob}`);
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const urlParams = new URLSearchParams(window.location.search);
+        const tratto = urlParams.get('tratto') || 'report';
+        const filename = `Report_Globale_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
+        triggerDownload(blob, filename);
+    }
+
     function downloadChartCSV(chartId) {
         if (!datiPerReport || datiPerReport.length === 0) {
             alert('Nessun dato disponibile per generare il report.');
@@ -254,22 +304,11 @@
             csvRows.push(`${time},${value}`);
         });
         const csvContent = csvRows.join('\n');
-
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            const urlParams = new URLSearchParams(window.location.search);
-            const tratto = urlParams.get('tratto') || 'report';
-            const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
-
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const tratto = urlParams.get('tratto') || 'report';
+        const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
+        triggerDownload(blob, filename);
     }
 
     function setupCustomScrollbar(chart, scrollbarElement, allData) {
@@ -394,6 +433,7 @@
       creaGrafici(dati);
 
       document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
+      document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
 
       const searchInput = document.getElementById('search-tratto');
       const suggestionsContainer = document.getElementById('suggestions-container');
