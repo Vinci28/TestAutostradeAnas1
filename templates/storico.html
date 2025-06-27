@@ -162,7 +162,7 @@
                             <div style="color: #000000;">
                                 <b>${tratto.nome}</b><br/>
                                 Lunghezza: ${lengthKm} km<br/>
-                                <a href="/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalità=storico"
+                                <a href="/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalita=storico"
                                    target="_blank"
                                    style="color: #1200ff; text-decoration: none;"> Apri grafico Storico
                                 </a>
@@ -204,7 +204,7 @@
                                     if (files && files.length > 0) {
                                         const link = item.querySelector(".tratto-file");
                                         const file = files[0];
-                                        link.innerHTML = `<a href='/grafico?tratto=${tratto.nome}&modalità=storico' target='_blank' style="color: #4CAF50;">Apri grafico: ${file}</a>`;
+                                        link.innerHTML = `<a href='/grafico?tratto=${tratto.nome}&modalita=storico' target='_blank' style="color: #4CAF50;">Apri grafico: ${file}</a>`;
                                     }
                                 })
                                 .catch(err => {
@@ -230,7 +230,7 @@
         }
 
         function apriGraficoStorico(nomeTratto) {
-            const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalità=storico`;
+            const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalita=storico`;
             // Removed width, height, and other features to encourage opening in a new tab
             window.open(url, '_blank');
         }

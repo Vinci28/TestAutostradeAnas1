@@ -7,10 +7,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
   <style>
+    /* ... CSS INVARIATO ... */
     html, body {
         height: 100%;
         margin: 0;
-        overflow: hidden; /* Impedisce lo scorrimento del body */
+        overflow: hidden;
         background: #121212;
     }
     body {
@@ -30,9 +31,21 @@
       color: #f0f0f0;
       flex-shrink: 0;
     }
-    #ultimo-download {
+    .aggiornamento-info {
         margin-bottom: 10px;
         flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    #ultimo-download {
+        font-size: 0.9em;
+        color: #aaa;
+    }
+    #countdown-refresh {
+        font-size: 0.9em;
+        color: #ffc107; /* Colore ambrato per evidenziare */
+        font-weight: bold;
     }
     .controlli-superiori {
       display: flex;
@@ -105,9 +118,9 @@
     .grafici-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr; /* Righe flessibili */
+      grid-template-rows: 1fr 1fr;
       gap: 20px;
-      flex-grow: 1; /* Occupa lo spazio rimanente */
+      flex-grow: 1;
       min-height: 0;
     }
     .grafico-card {
@@ -159,9 +172,6 @@
         position: relative;
         min-height: 0;
     }
-    canvas {
-      /* Altezza e larghezza rimosse */
-    }
     .custom-scrollbar {
         position: relative;
         width: 100%;
@@ -203,7 +213,11 @@
 <body>
 <div class="page-wrapper">
   <h1 id="titolo-tratto">Grafico Previsionale</h1>
-  <div id="ultimo-download" class="ultimo-aggiornamento"></div>
+
+  <div class="aggiornamento-info">
+      <div id="ultimo-download"></div>
+      <div id="countdown-refresh"></div>
+  </div>
 
   <div class="controlli-superiori">
     <div class="button-group">
@@ -268,6 +282,7 @@
     const chartRefs = {};
     let datiPerReport = [];
 
+    // --- Funzioni per report e scrollbar (invariate) ---
     function triggerDownload(blob, filename) {
         const link = document.createElement('a');
         if (link.download !== undefined) {
@@ -280,16 +295,13 @@
             document.body.removeChild(link);
         }
     }
-
     function downloadGlobalCSV() {
         if (!datiPerReport || datiPerReport.length === 0) {
             alert('Nessun dato disponibile per generare il report.');
             return;
         }
-
         const header = 'Time,Temperatura_C,Precipitazione_mm,Vento_ms,Prob_Precipitazione_Percent';
         let csvRows = [header];
-
         datiPerReport.forEach(row => {
             const time = new Date(row.time).toISOString().slice(0, 19).replace('T', ' ');
             const temp = row.temperature;
@@ -298,7 +310,6 @@
             const prob = row.precipitation_probability;
             csvRows.push(`${time},${temp},${prec},${wind},${prob}`);
         });
-
         const csvContent = csvRows.join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const urlParams = new URLSearchParams(window.location.search);
@@ -306,23 +317,19 @@
         const filename = `Report_Globale_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
         triggerDownload(blob, filename);
     }
-
     function downloadChartCSV(chartId) {
         if (!datiPerReport || datiPerReport.length === 0) {
             alert('Nessun dato disponibile per generare il report.');
             return;
         }
-
         const reportConfig = {
             'temp': { header: 'Time,Temperatura_C', columns: ['time', 'temperature'] },
             'prec': { header: 'Time,Precipitazione_mm', columns: ['time', 'precipitation'] },
             'wind': { header: 'Time,Vento_ms', columns: ['time', 'windspeed'] },
             'prob': { header: 'Time,Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
         };
-
         const config = reportConfig[chartId];
         if (!config) return;
-
         let csvRows = [config.header];
         datiPerReport.forEach(row => {
             const time = new Date(row[config.columns[0]]).toISOString().slice(0, 19).replace('T', ' ');
@@ -336,33 +343,26 @@
         const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
         triggerDownload(blob, filename);
     }
-
     function setupCustomScrollbar(chart, scrollbarElement, allData) {
         const handle = scrollbarElement.querySelector('.scrollbar-handle');
         const track = scrollbarElement.querySelector('.scrollbar-track');
         let isDragging = false;
-
         const updateHandle = () => {
             if (!chart.scales || !chart.scales.x) return;
             const scale = chart.scales.x;
             const totalPoints = allData.length;
             const visiblePoints = scale.max - scale.min;
-
             if (totalPoints <= Math.ceil(visiblePoints)) {
                 scrollbarElement.style.display = 'none';
                 return;
             }
             scrollbarElement.style.display = 'block';
-
             const scrollableRange = totalPoints - visiblePoints;
             if (scrollableRange <= 0) return;
-
             const scrollPercent = scale.min / scrollableRange;
             const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
-
             handle.style.left = `${scrollPercent * maxHandleLeft}px`;
         };
-
         if (chart.options.plugins.zoom) {
             const existingOnPanComplete = chart.options.plugins.zoom.pan.onPanComplete;
             chart.options.plugins.zoom.pan.onPanComplete = (chartContext) => {
@@ -371,7 +371,6 @@
                 }
                 updateHandle();
             };
-
             const existingOnZoomComplete = chart.options.plugins.zoom.zoom.onZoomComplete;
             chart.options.plugins.zoom.zoom.onZoomComplete = (chartContext) => {
                 if (typeof existingOnZoomComplete === 'function') {
@@ -380,41 +379,31 @@
                 updateHandle();
             };
         }
-
         setTimeout(updateHandle, 500);
-
         handle.addEventListener('mousedown', (e) => {
             isDragging = true;
             handle.style.cursor = 'grabbing';
             document.body.style.cursor = 'grabbing';
             document.body.style.userSelect = 'none';
-
             const startX = e.pageX;
             const startLeft = handle.offsetLeft;
             const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
-
             const scale = chart.scales.x;
             const totalPoints = allData.length;
             const initialVisiblePoints = scale.max - scale.min;
             const scrollableRange = totalPoints - initialVisiblePoints;
-
             const onMouseMove = (moveEvent) => {
                 if (!isDragging || scrollableRange <= 0) return;
                 moveEvent.preventDefault();
-
                 const deltaX = moveEvent.pageX - startX;
                 let newLeft = startLeft + deltaX;
                 newLeft = Math.max(0, Math.min(newLeft, maxHandleLeft));
                 handle.style.left = `${newLeft}px`;
-
                 const positionPercent = newLeft / maxHandleLeft;
-
                 const newMin = positionPercent * scrollableRange;
                 const newMax = newMin + initialVisiblePoints;
-
                 chart.zoomScale('x', {min: newMin, max: newMax}, 'none');
             };
-
             const onMouseUp = () => {
                 isDragging = false;
                 handle.style.cursor = 'grab';
@@ -423,23 +412,66 @@
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
             };
-
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
     }
-
     function resetZoom(id) {
       if (chartRefs[id]) {
         chartRefs[id].resetZoom();
       }
     }
-
     function resetAllZooms() {
       Object.keys(chartRefs).forEach(id => {
         if (chartRefs[id]) chartRefs[id].resetZoom();
       });
     }
+
+    // --- NUOVA LOGICA PER IL REFRESH AUTOMATICO ---
+    function setupAutoRefresh() {
+        const REFRESH_MINUTE_TARGET = 5; // Esegui al 5° minuto di ogni ora
+        const countdownElement = document.getElementById('countdown-refresh');
+
+        if (!countdownElement) return;
+
+        function getNextRefreshTime() {
+            const now = new Date();
+            const nextRefresh = new Date(now.getTime());
+
+            nextRefresh.setMinutes(REFRESH_MINUTE_TARGET, 0, 0); // Imposta minuti, secondi e millisecondi
+
+            // Se l'orario target è già passato per l'ora corrente, programma per l'ora successiva
+            if (now.getTime() > nextRefresh.getTime()) {
+                nextRefresh.setHours(nextRefresh.getHours() + 1);
+            }
+            return nextRefresh;
+        }
+
+        function updateCountdown() {
+            const now = new Date();
+            const nextRefresh = getNextRefreshTime();
+            const diffSeconds = Math.round((nextRefresh - now) / 1000);
+
+            if (diffSeconds <= 1) {
+                countdownElement.textContent = "Aggiornamento in corso...";
+                // Aggiungiamo un piccolo ritardo per assicurarci che i nuovi dati siano pronti
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+
+            const minutes = Math.floor(diffSeconds / 60);
+            const seconds = diffSeconds % 60;
+            const targetTime = nextRefresh.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+            countdownElement.textContent = `Nuovi dati in arrivo alle ${targetTime} (aggiornamento tra ${minutes}m e ${seconds}s)`;
+        }
+
+        // Avvia il timer
+        setInterval(updateCountdown, 1000);
+        // Esegui subito per mostrare il messaggio immediatamente
+        updateCountdown();
+    }
+
 
     document.addEventListener("DOMContentLoaded", () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -451,16 +483,22 @@
           document.getElementById('titolo-tratto').textContent = `Grafico Previsionale - ${tratto}`;
       }
 
-      const ultimoDownload = new Date("{{ ultimo_download }}").toLocaleString('it-IT');
-      document.getElementById('ultimo-download').textContent = `Ultimo aggiornamento: ${ultimoDownload}`;
+      const ultimoDownload = new Date("{{ ultimo_download }}").toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'medium' });
+      document.getElementById('ultimo-download').textContent = `Dati aggiornati alle: ${ultimoDownload}`;
 
+      // Inizializza i dati e i grafici
       const dati = JSON.parse('{{ dati | tojson | safe }}');
       datiPerReport = dati;
       creaGrafici(dati);
 
+      // Associa gli eventi ai pulsanti
       document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
       document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
 
+      // Avvia il refresh automatico
+      setupAutoRefresh();
+
+      // --- Logica per la ricerca (invariata) ---
       const searchInput = document.getElementById('search-tratto');
       const suggestionsContainer = document.getElementById('suggestions-container');
       const searchButton = document.getElementById('search-button');
@@ -468,12 +506,11 @@
       searchButton.addEventListener('click', () => {
         const nuovoTratto = searchInput.value;
         if (nuovoTratto) {
-          window.location.href = `/grafico?tratto=${encodeURIComponent(nuovoTratto)}&modalità=previsionale`;
+          window.location.href = `/grafico?tratto=${encodeURIComponent(nuovoTratto)}&modalita=previsionale`;
         } else {
           alert('Inserisci un nome di tratto da cercare.');
         }
       });
-
       searchInput.addEventListener('input', () => {
         const query = searchInput.value;
         if (query.length < 2) {
@@ -481,12 +518,10 @@
           suggestionsContainer.style.display = 'none';
           return;
         }
-
         let apiUrl = `/api/tratti?search=${encodeURIComponent(query)}`;
         if (currentRoad) {
             apiUrl += `&strada=${encodeURIComponent(currentRoad)}`;
         }
-
         fetch(apiUrl)
             .then(res => res.json())
             .then(suggestions => {
@@ -533,7 +568,6 @@
           }
         }
       });
-
       const ids = ['temp', 'prec', 'wind', 'prob'];
       const configs = {
           'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 40),
@@ -541,13 +575,11 @@
           'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', 0, 10),
           'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)
       };
-
       const probConfig = configs['prob'];
       probConfig.type = 'bar';
       probConfig.data.datasets[0].backgroundColor = '#ffc107';
       delete probConfig.data.datasets[0].tension;
       delete probConfig.data.datasets[0].fill;
-
       ids.forEach(id => {
           chartRefs[id] = new Chart(document.getElementById(id), configs[id]);
           setupCustomScrollbar(chartRefs[id], document.getElementById(`scrollbar-${id}`), dati);

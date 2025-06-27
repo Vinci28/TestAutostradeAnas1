@@ -1,7 +1,6 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify
 import psycopg2
 import logging
-import os
 import pandas as pd
 from datetime import datetime, timedelta
 import re
@@ -14,42 +13,51 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# === CONFIG DB ===
+# === CONFIGURAZIONE DB ===
 DB_CONFIG = {
-    "dbname": "puntiautostrade",
+    "dbname": "autostradeanasdb",
     "user": "vinc",
     "password": "1234",
     "host": "localhost",
     "port": 5432
 }
 
-# === LISTA PER LA RICERCA ===
-ALL_DATA_TABLES = ['datia90', 'datiss51', 'datiss675']
+# Identificativi delle strade gestite
+ROAD_IDENTIFIERS = ['A90', 'SS51', 'SS675']
 
 
 def get_connection():
+    """Stabilisce la connessione al database."""
     return psycopg2.connect(**DB_CONFIG)
 
 
-# Mappatura autostrada ➜ tabella corretta
-def get_table_from_punto(punto):
-    if not punto:
+def get_table_name(tratto, modalita):
+    """
+    Determina dinamicamente il nome della tabella in base al tratto e alla modalità.
+    Gestisce la differenza tra 'storico' (parametro) e 'storici' (nome tabella).
+    """
+    if not tratto or not modalita:
         return None
-    punto_upper = punto.upper()
-    if 'A90' in punto_upper:
-        return 'datia90'
-    elif 'SS51' in punto_upper:
-        return 'datiss51'
-    elif 'SS675' in punto_upper:
-        return 'datiss675'
+
+    if modalita == 'storico':
+        table_type = 'storici'
+    elif modalita == 'previsionale':
+        table_type = 'previsionale'
     else:
-        for table in ALL_DATA_TABLES:
-            if table.replace('dati', '').upper() in punto_upper:
-                return table
+        logging.error(f"Modalità sconosciuta: '{modalita}'")
         return None
 
+    tratto_upper = tratto.upper()
+    for identifier in ROAD_IDENTIFIERS:
+        if identifier in tratto_upper:
+            road_code = identifier.lower()
+            return f"dati_{table_type}_{road_code}"
 
-# === ENDPOINT STATICI ===
+    logging.warning(f"Nessun identificatore di strada trovato per '{tratto}'")
+    return None
+
+
+# === ENDPOINT STATICI (Invariati) ===
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -70,17 +78,11 @@ def previsionale2():
     return render_template("previsionale2.html")
 
 
-# === ENDPOINT PER LA RICERCA DEI TRATTI (MODIFICATO) ===
+# === ENDPOINT PER LA RICERCA DEI TRATTI ===
 @app.route('/api/tratti')
 def search_tratti():
-    """
-    Endpoint per la ricerca autocomplete dei tratti.
-    - Se la ricerca matcha il pattern "STRADA Km X+...", cerca per range chilometrico.
-    - Se la ricerca matcha "km X+" e il contesto 'strada' è presente, combina i due.
-    - Altrimenti, usa il parametro 'strada' per limitare la ricerca a una singola autostrada.
-    """
-    query_param = request.args.get('search', '')
-    strada_param = request.args.get('strada', None)  # Nuovo parametro per il contesto
+    query_param = request.args.get('search', '').strip()
+    strada_param = request.args.get('strada', None)
 
     if len(query_param) < 2:
         return jsonify([])
@@ -89,69 +91,25 @@ def search_tratti():
     try:
         conn = get_connection()
         cursor = conn.cursor()
+        table_to_search = None
+        if strada_param:
+            table_to_search = get_table_name(strada_param, 'storico')
 
-        sql_query = ""
-        params = ()
+        search_term = f"%{query_param}%"
 
-        # Pattern per query complete (es. "A90 Km 2+")
-        full_km_pattern = re.compile(r'^(?P<road>\S+)\s+Km\s+(?P<km_major>\d+)', re.IGNORECASE)
-        # Pattern per query abbreviate (es. "km 2+")
-        shorthand_km_pattern = re.compile(r'^Km\s+(?P<km_major>\d+)', re.IGNORECASE)
-
-        full_match = full_km_pattern.match(query_param)
-        shorthand_match = shorthand_km_pattern.match(query_param)
-
-        if full_match:
-            # Priorità 1: L'utente ha inserito una query completa
-            road_name = full_match.group('road')
-            km_major = full_match.group('km_major')
-            table = get_table_from_punto(road_name)
-            if table:
-                search_term = f"{road_name.upper()} Km {km_major}+%"
-                sql_query = f"SELECT DISTINCT tratto FROM {table} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
-                params = (search_term,)
-                logging.info(f"🔎 Ricerca per range chilometrico COMPLETO: '{search_term}'")
-
-        elif shorthand_match and strada_param:
-            # Priorità 2: L'utente ha usato una scorciatoia e il contesto della strada è disponibile
-            km_major = shorthand_match.group('km_major')
-            road_name_from_context = strada_param
-            table = get_table_from_punto(road_name_from_context)
-            if table:
-                # Costruisce la query completa usando il contesto
-                search_term = f"{road_name_from_context.upper()} Km {km_major}+%"
-                sql_query = f"SELECT DISTINCT tratto FROM {table} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
-                params = (search_term,)
-                logging.info(f"🔎 Ricerca per range chilometrico SHORTHAND: '{search_term}'")
-
+        if table_to_search:
+            sql_query = f"SELECT DISTINCT tratto FROM {table_to_search} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
+            params = (search_term,)
         else:
-            # Priorità 3: Ricerca contestuale standard
-            table_to_search = get_table_from_punto(strada_param)
-            search_term = f"{query_param}%"
+            union_queries = [
+                f"SELECT DISTINCT tratto FROM {get_table_name(road, 'storico')}" for road in ROAD_IDENTIFIERS
+            ]
+            full_query = " UNION ".join(union_queries)
+            sql_query = f"SELECT tratto FROM ({full_query}) as tutti_i_tratti WHERE tratto ILIKE %s ORDER BY tratto LIMIT 20"
+            params = (search_term,)
 
-            if table_to_search:
-                # Se il contesto della strada è fornito, cerca solo in quella tabella
-                sql_query = f"SELECT DISTINCT tratto FROM {table_to_search} WHERE tratto ILIKE %s ORDER BY tratto LIMIT 10"
-                params = (search_term,)
-                logging.info(f"🔎 Ricerca contestuale per '{search_term}' nella tabella {table_to_search}")
-            else:
-                # Fallback: se nessun contesto è fornito, cerca in tutte le tabelle
-                union_queries = [f"SELECT DISTINCT tratto FROM {table}" for table in ALL_DATA_TABLES]
-                full_query = " UNION ".join(union_queries)
-                sql_query = f"""
-                    SELECT tratto FROM ({full_query}) as tutti_i_tratti
-                    WHERE tratto ILIKE %s ORDER BY tratto LIMIT 10
-                """
-                params = (search_term,)
-                logging.info(f"🔎 Ricerca globale per '{search_term}'")
-
-        if sql_query:
-            cursor.execute(sql_query, params)
-            results = [row[0] for row in cursor.fetchall()]
-        else:
-            results = []
-
-        logging.info(f"✅ Trovati {len(results)} suggerimenti.")
+        cursor.execute(sql_query, params)
+        results = [row[0] for row in cursor.fetchall()]
         return jsonify(results)
 
     except Exception as e:
@@ -162,34 +120,25 @@ def search_tratti():
             conn.close()
 
 
-# === API: FILE DINAMICI PER TRATTI ===
-@app.route('/api/files/<strada>/<tratto>')
-def lista_file_per_tratto(strada, tratto):
-    directory = os.path.join("static", "jsons", "history", strada)
-    if not os.path.exists(directory):
-        return jsonify([])
-
-    pattern = f"{strada}_{strada}_{tratto}_"
-    files = [f for f in os.listdir(directory) if f.startswith(pattern) and f.endswith(".jsons")]
-    files.sort(reverse=True)
-    return jsonify(files)
-
-
+# === ENDPOINT GRAFICI ===
 @app.route('/grafico')
 def grafico():
     tratto = request.args.get('tratto')
-    if not tratto:
-        return render_template('grafico.html', tratto=None)
+    # --- MODIFICA QUI ---
+    # Rimuoviamo l'accento per una maggiore compatibilità
+    modalita = request.args.get('modalita', 'storico')
 
+    if not tratto:
+        return "Parametro 'tratto' mancante.", 400
+
+    tabella = get_table_name(tratto, modalita)
+    if not tabella:
+        logging.error(f"Impossibile determinare la tabella per tratto='{tratto}' e modalità='{modalita}'")
+        return f"Configurazione non trovata per il tratto '{tratto}'.", 404
+
+    logging.info(f"Richiesta per tratto '{tratto}' in modalita '{modalita}', tabella '{tabella}'")
     conn = None
     try:
-        modalita = request.args.get('modalità', 'storico')
-        tabella = get_table_from_punto(tratto)
-
-        if not tabella:
-            logging.warning(f"Autostrada non riconosciuta per tratto: {tratto}")
-            return "Autostrada non riconosciuta", 400
-
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -199,119 +148,92 @@ def grafico():
             ultimo_download = cursor.fetchone()[0]
 
             if not ultimo_download:
-                return "Nessun dato previsionale per questo tratto", 404
+                return "Nessun dato previsionale disponibile per questo tratto.", 404
 
-            query_previsionale = f"""
-                SELECT time, temperature, precipitation, windspeed, precipitation_probability
-                FROM {tabella}
-                WHERE tratto = %s AND downloaded_at = %s AND time >= %s
-                ORDER BY time
-            """
+            query_previsionale = f"SELECT time, temperature, precipitation, windspeed, precipitation_probability FROM {tabella} WHERE tratto = %s AND downloaded_at = %s AND time >= %s ORDER BY time"
             cursor.execute(query_previsionale, (tratto, ultimo_download, ultimo_download))
             rows = cursor.fetchall()
             columns = ['time', 'temperature', 'precipitation', 'windspeed', 'precipitation_probability']
             df = pd.DataFrame(rows, columns=columns)
 
-            return render_template('grafico_previsionale.html',
-                                   dati=df.to_dict(orient='records'),
-                                   tratto=tratto,
+            return render_template('grafico_previsionale.html', dati=df.to_dict(orient='records'), tratto=tratto,
                                    ultimo_download=ultimo_download)
 
-        return render_template('grafico.html', tratto=tratto)
+        elif modalita == 'storico':
+            return render_template('grafico.html', tratto=tratto)
+
+        else:
+            return "Modalità non valida. Usare 'storico' o 'previsionale'.", 400
 
     except Exception as e:
         logging.error(f"💥 Errore in /grafico: {str(e)}", exc_info=True)
-        return "Si è verificato un errore interno", 500
+        return "Si è verificato un errore interno nel server.", 500
     finally:
         if conn:
             conn.close()
 
 
+# === API PER DATI STORICI ===
 @app.route('/api/dati_tratto')
 def dati_tratto():
     tratto = request.args.get('tratto')
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
 
-    logging.info(f"📥 Richiesta dati storico per tratto={tratto}, start={start_date_str}, end={end_date_str}")
+    logging.info(f"📥 Richiesta dati storici per tratto='{tratto}', start={start_date_str}, end={end_date_str}")
 
     if not tratto:
         return jsonify({"errore": "Parametro 'tratto' mancante"}), 400
 
-    tabella = get_table_from_punto(tratto)
+    tabella = get_table_name(tratto, 'storico')
     if not tabella:
-        logging.warning("❌ Autostrada non riconosciuta per tratto: %s", tratto)
-        return jsonify({"errore": "Autostrada non riconosciuta"}), 400
+        logging.error(f"❌ Impossibile determinare la tabella per il tratto: '{tratto}'")
+        return jsonify({"errore": f"Autostrada non riconosciuta per il tratto: {tratto}"}), 400
+
+    logging.info(f"ℹ️ Tabella identificata: '{tabella}' per il tratto '{tratto}'")
 
     conn = None
     try:
+        logging.info("➡️  Tentativo di connessione al database...")
         conn = get_connection()
         cursor = conn.cursor()
+        logging.info("✅ Connessione al database stabilita.")
 
-        cursor.execute(f"SELECT DISTINCT punto FROM {tabella} WHERE tratto = %s LIMIT 1", (tratto,))
-        result = cursor.fetchone()
-
-        if not result:
-            logging.warning("❌ Nessun punto trovato per il tratto: %s", tratto)
-            return jsonify({"errore": "Tratto non trovato"}), 404
-
-        punto = result[0]
-        logging.info(f"ℹ️ Punto associato al tratto {tratto}: {punto}")
-
-        giorni_da_processare = []
+        query = f"SELECT time, temperature, precipitation, windspeed, precipitation_probability FROM {tabella} WHERE tratto = %s"
+        params = [tratto]
 
         if start_date_str and end_date_str:
-            logging.info(f"📆 Intervallo richiesto: da {start_date_str} a {end_date_str}")
-            try:
-                start = datetime.fromisoformat(start_date_str).date()
-                end = datetime.fromisoformat(end_date_str).date()
-                delta = end - start
-                giorni_da_processare = [start + timedelta(days=i) for i in range(delta.days + 1)]
-            except ValueError:
-                return jsonify({"errore": "Formato data non valido. Usare YYYY-MM-DD."}), 400
-        else:
-            logging.info("📆 Nessun intervallo specificato, carico tutti i giorni disponibili.")
-            query_giorni = f"""
-                SELECT DISTINCT DATE(downloaded_at) as giorno
-                FROM {tabella} WHERE tratto = %s AND punto = %s ORDER BY giorno
-            """
-            cursor.execute(query_giorni, (tratto, punto))
-            giorni_da_processare = [row[0] for row in cursor.fetchall()]
+            start_date = datetime.fromisoformat(start_date_str).strftime('%Y-%m-%d 00:00:00')
+            end_date = datetime.fromisoformat(end_date_str).strftime('%Y-%m-%d 23:59:59')
+            query += " AND time BETWEEN %s AND %s"
+            params.extend([start_date, end_date])
 
-        logging.info(f"📅 Trovati {len(giorni_da_processare)} giorni da processare per il tratto {tratto}")
-        dati_finali = []
+        query += " ORDER BY time"
 
-        for giorno in giorni_da_processare:
-            giorno_dt = datetime.combine(giorno, datetime.min.time())
-            downloaded_start = giorno_dt.replace(hour=21, minute=0, second=0)
-            downloaded_end = giorno_dt.replace(hour=21, minute=59, second=59)
-            time_start = giorno_dt.replace(hour=0, minute=0, second=0)
-            time_end = giorno_dt.replace(hour=23, minute=59, second=59)
+        logging.info(f"▶️  Esecuzione query sulla tabella '{tabella}'...")
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        logging.info(f"📊 Recuperate {len(rows)} righe.")
 
-            query_giorno = f"""
-                SELECT downloaded_at, tratto, punto, time, temperature, precipitation, windspeed, precipitation_probability
-                FROM {tabella}
-                WHERE tratto = %s AND punto = %s
-                  AND downloaded_at BETWEEN %s AND %s
-                  AND time BETWEEN %s AND %s
-                ORDER BY time
-            """
-            cursor.execute(query_giorno, (tratto, punto, downloaded_start, downloaded_end, time_start, time_end))
-            dati_finali.extend(cursor.fetchall())
+        if not rows:
+            return jsonify([])
 
-        logging.info(f"📊 Recuperate {len(dati_finali)} righe totali.")
+        columns = ['time', 'temperature', 'precipitation', 'windspeed', 'precipitation_probability']
+        df = pd.DataFrame(rows, columns=columns)
 
-        columns = ['downloaded_at', 'tratto', 'punto', 'time', 'temperature', 'precipitation', 'windspeed',
-                   'precipitation_probability']
-        df = pd.DataFrame(dati_finali, columns=columns)
         return df.to_json(orient='records')
 
+    except psycopg2.errors.UndefinedTable:
+        logging.error(f"💥 ERRORE CRITICO: La tabella '{tabella}' non esiste nel database!", exc_info=True)
+        return jsonify({"errore": f"Errore del server: la tabella dati '{tabella}' non è stata trovata."}), 500
     except Exception as e:
-        logging.error(f"💥 Errore in /api/dati_tratto: {str(e)}", exc_info=True)
-        return jsonify({"errore": "Si è verificato un errore interno"}), 500
+        logging.error(f"💥 Errore generico in /api/dati_tratto: {str(e)}", exc_info=True)
+        return jsonify({"errore": "Si è verificato un errore interno durante il recupero dei dati storici"}), 500
     finally:
         if conn:
             conn.close()
+            logging.info("🔌 Connessione al database chiusa.")
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

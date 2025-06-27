@@ -92,7 +92,6 @@
         #tratti-list {
             padding-right: 5px;
         }
-        /* Scrollbar styling */
         #sidebar::-webkit-scrollbar {
             width: 8px;
         }
@@ -106,14 +105,13 @@
         #sidebar::-webkit-scrollbar-thumb:hover {
             background: #666;
         }
-        /* Leaflet Popup Styles for Dark Theme */
         .leaflet-popup-content-wrapper {
-            background-color: #252525; /* Dark background */
-            color: #e0e0e0; /* Light text color */
+            background-color: #252525;
+            color: #e0e0e0;
             border-radius: 4px;
         }
         .leaflet-popup-tip {
-            background-color: #252525; /* Dark background for the tip */
+            background-color: #252525;
         }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -133,7 +131,6 @@
     <script src="https://cdn.jsdelivr.net/gh/ardhi/Leaflet.Dark@1.0.1/dist/leaflet-dark.js"></script>
 
     <script>
-        // Inizializza mappa con tema dark
         const map = L.map('map', {
             center: [41.9, 12.4],
             zoom: 11,
@@ -147,22 +144,15 @@
         });
 
         const polylineGroup = L.layerGroup().addTo(map);
-        let polylines = [];
         let items = [];
-
-        function convertiStradaENumero(nomeTratto) {
-            const match = nomeTratto.match(/km(\d+)_([A-Z0-9]+)/);
-            if (match) {
-                return { strada: match[2], numero: match[1] };
-            }
-            return null;
-        }
 
         function caricaTratti() {
             fetch("/static/jsons/tratti_strada_allineati.json")
                 .then(response => response.json())
                 .then(tratti => {
                     const trattiListEl = document.getElementById('tratti-list');
+                    trattiListEl.innerHTML = ''; // Pulisce la lista prima di aggiungere nuovi elementi
+                    items = [];
 
                     tratti.forEach((tratto, index) => {
                         const turfCoords = tratto.punti.map(pt => [pt.lon, pt.lat]);
@@ -175,98 +165,53 @@
                         item.innerHTML = `
                             <div class="tratto-name">${tratto.nome}</div>
                             <div class="tratto-length">Lunghezza: ${lengthKm} km</div>
-                            <div class="tratto-file">Caricamento dati...</div>
+                            <div class="tratto-file" style="color: #4CAF50; text-decoration: underline; cursor: pointer;">Apri grafico previsionale</div>
                         `;
                         trattiListEl.appendChild(item);
                         items.push(item);
 
                         const latlngs = tratto.punti.map(p => [p.lat, p.lon]);
                         const hue = (index * 47) % 360;
-                        const polyline = L.polyline(latlngs, {
-                            color: `hsl(${hue}, 70%, 50%)`,
-                            weight: 5,
-                            opacity: 0.8
-                        }).addTo(polylineGroup);
+                        const polyline = L.polyline(latlngs, { color: `hsl(${hue}, 70%, 50%)`, weight: 5, opacity: 0.8 }).addTo(polylineGroup);
 
-                        // Popup content updated for dark theme visibility
+                        // ===== MODIFICA CHIAVE QUI =====
                         polyline.bindPopup(`
                             <div style="color: #e0e0e0;">
                                 <b>${tratto.nome}</b><br/>
                                 Lunghezza: ${lengthKm} km<br/>
-                                <a href="/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalità=previsionale"
+                                <a href="/grafico?tratto=${encodeURIComponent(tratto.nome)}&modalita=previsionale"
                                    target="_blank"
-                                   style="color: #66ccff; text-decoration: none;"> Apri grafico previsionale
-                                </a>
+                                   style="color: #66ccff; text-decoration: none;">Apri grafico previsionale</a>
                             </div>
                         `);
-                        polylines.push(polyline);
 
-                        // Click sull'elemento della lista: open popup AND open graph in new tab
-                        item.addEventListener('click', () => {
-                            map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
-                            polyline.setStyle({ color: '#ff4444', weight: 6 });
-                            setTimeout(() => {
-                                polyline.setStyle({ color: `hsl(${hue}, 70%, 50%)`, weight: 5 });
-                            }, 1000);
-                            polyline.openPopup();
-                            apriGraficoPrevisionale(tratto.nome); // Open graph in new tab
+                        const openChartAction = () => {
+                            apriGraficoPrevisionale(tratto.nome);
+                        };
+
+                        item.addEventListener('click', openChartAction);
+                        polyline.on('click', (e) => {
+                            // Quando si clicca sulla mappa, apre solo il popup di Leaflet
+                            // Il link nel popup aprirà poi il grafico in un nuovo tab
+                            L.DomEvent.stopPropagation(e); // Impedisce al click di propagarsi alla mappa
                         });
-
-                        // Click direttamente sulla polyline: open graph in new tab
-                        polyline.on('click', () => {
-                            // No need for e.originalEvent.preventDefault() if we're opening a new tab
-                            apriGraficoPrevisionale(tratto.nome); // Open graph in new tab
-                        });
-
-                        // Carica info sui file disponibili
-                        const info = convertiStradaENumero(tratto.nome);
-                        if (info) {
-                            fetch(`/api/files/${info.strada}/${info.numero}`)
-                                .then(res => {
-                                    if (!res.ok) {
-                                        item.querySelector(".tratto-file").textContent = "Nessun dato disponibile";
-                                        return null;
-                                    }
-                                    return res.json();
-                                })
-                                .then(files => {
-                                    if (files && files.length > 0) {
-                                        const linkSpan = item.querySelector(".tratto-file");
-                                        const file = files[0];
-                                        // The link now calls apriGraficoPrevisionale on click
-                                        linkSpan.innerHTML = `
-                                            <a href='javascript:void(0);'
-                                               onclick='apriGraficoPrevisionale("${tratto.nome}")'
-                                               style="color: #4CAF50; text-decoration: none;">
-                                               Ultimo aggiornamento: ${file.split('_')[3].replace('.jsons', '')}
-                                            </a>`;
-                                    }
-                                })
-                                .catch(err => {
-                                    console.warn("Errore nel caricamento dei file:", err);
-                                    item.querySelector(".tratto-file").textContent = "Errore nel caricamento";
-                                });
-                        }
                     });
 
                     if (polylineGroup.getLayers().length > 0) {
                         map.fitBounds(polylineGroup.getBounds(), { padding: [50, 50] });
                     }
                 })
-                .catch(error => {
-                    console.error("Errore nel caricamento dei tratti:", error);
-                });
+                .catch(error => console.error("Errore nel caricamento dei tratti:", error));
         }
 
-        // New function to open the chart in a new tab without specific window features
         function apriGraficoPrevisionale(nomeTratto) {
-            const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalità=previsionale`;
-            window.open(url, '_blank'); // Opens in a new tab
+            // ===== MODIFICA CHIAVE QUI =====
+            const url = `/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalita=previsionale`;
+            window.open(url, '_blank');
         }
 
         caricaTratti();
 
-        // Gestione ricerca
         document.getElementById('searchBar').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
             items.forEach((item) => {
@@ -275,7 +220,6 @@
             });
         });
 
-        // Toggle visibilità tratti
         let trattiVisible = true;
         document.getElementById('toggleButton').addEventListener('click', () => {
             const btn = document.getElementById('toggleButton');
