@@ -417,7 +417,7 @@ def main():
 # === MODIFICA: BLOCCO DI ESECUZIONE PERSISTENTE ===
 # ==============================================================================
 if __name__ == "__main__":
-    TARGET_MINUTE = 4  # Esegui al quinto minuto di ogni ora
+    TARGET_MINUTE = 5  # Esegui al quinto minuto di ogni ora
 
     while True:
         try:

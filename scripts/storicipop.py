@@ -17,7 +17,7 @@ import tempfile  # Usato per creare una cartella temporanea sicura
 # 🔁 MODIFICA QUESTA DATA per scegliere quale giorno elaborare.
 #    Lo script cercherà tutte le cartelle in DBFS che iniziano con questa data.
 #    Formato: "YYYY-MM-DD"
-DATA_ELABORAZIONE = "2025-06-26"
+DATA_ELABORAZIONE = "2025-06-27"
 
 # --- CONFIGURAZIONE DATABRICKS (presa da download_storici.py) ---
 DATABRICKS_INSTANCE = "https://adb-907348808966690.10.azuredatabricks.net"

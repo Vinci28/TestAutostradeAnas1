@@ -235,5 +235,85 @@ def dati_tratto():
             logging.info("🔌 Connessione al database chiusa.")
 
 
+# === API PER CONTROLLO AGGIORNAMENTI ===
+@app.route('/api/check_update')
+def check_update():
+    tratto = request.args.get('tratto')
+
+    if not tratto:
+        return jsonify({"errore": "Parametro 'tratto' mancante"}), 400
+
+    # Usiamo 'previsionale' perché stiamo controllando la tabella previsionale
+    tabella = get_table_name(tratto, 'previsionale')
+    if not tabella:
+        return jsonify({"errore": f"Configurazione non trovata per il tratto: {tratto}"}), 404
+
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Query super leggera per ottenere solo il timestamp dell'ultimo inserimento
+        query = f"SELECT MAX(downloaded_at) FROM {tabella} WHERE tratto = %s"
+        cursor.execute(query, (tratto,))
+
+        latest_update = cursor.fetchone()[0]
+
+        if latest_update:
+            # Restituiamo il timestamp in formato ISO 8601, standard per JS
+            return jsonify({"latest_update": latest_update.isoformat()})
+        else:
+            # Nessun dato trovato per questo tratto
+            return jsonify({"latest_update": None})
+
+    except Exception as e:
+        logging.error(f"💥 Errore in /api/check_update: {str(e)}", exc_info=True)
+        return jsonify({"errore": "Errore interno durante il controllo degli aggiornamenti"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/data_range')
+def data_range():
+    tratto = request.args.get('tratto')
+    if not tratto:
+        return jsonify({"errore": "Parametro 'tratto' mancante"}), 400
+
+    # Determina il nome della tabella storica
+    tabella = get_table_name(tratto, 'storico')
+    if not tabella:
+        return jsonify({"errore": "Impossibile determinare la tabella per il tratto"}), 400
+
+    logging.info(f"Recupero intervallo date per tabella '{tabella}'")
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Query per trovare la data minima e massima nella colonna 'time'
+        query = f"SELECT MIN(time), MAX(time) FROM {tabella}"
+        cursor.execute(query)
+        min_date, max_date = cursor.fetchone()
+
+        if min_date and max_date:
+            # Restituisce le date in un formato standard
+            return jsonify({
+                "start_date": min_date.strftime('%Y-%m-%d'),
+                "end_date": max_date.strftime('%Y-%m-%d')
+            })
+        else:
+            # Caso in cui non ci sono dati nella tabella
+            return jsonify({"start_date": None, "end_date": None})
+
+    except Exception as e:
+        logging.error(f"💥 Errore in /api/data_range: {str(e)}", exc_info=True)
+        return jsonify({"errore": "Errore interno durante il recupero dell'intervallo date"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

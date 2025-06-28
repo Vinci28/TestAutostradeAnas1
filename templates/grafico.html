@@ -10,7 +10,7 @@
     html, body {
         height: 100%;
         margin: 0;
-        overflow: hidden; /* Impedisce lo scorrimento del body */
+        overflow: hidden;
         background: #121212;
     }
     body {
@@ -28,30 +28,31 @@
       margin-top: 0;
       margin-bottom: 20px;
       color: #f0f0f0;
-      flex-shrink: 0; /* Non si restringe */
+      flex-shrink: 0;
     }
     .search-container {
       position: relative;
       display: flex;
       gap: 10px;
     }
-    #reset-zoom-globale, #search-button, .filtri-container button, .report-btn-global {
+    #reset-zoom-globale, #search-button, .filtri-container button {
       padding: 8px 15px;
       background-color: #007bff;
       color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      transition: background-color 0.2s ease;
     }
-    #reset-zoom-globale:hover, #search-button:hover, .filtri-container button:hover, .report-btn-global:hover {
+    #reset-zoom-globale:hover, #search-button:hover, .filtri-container button:hover {
       background-color: #0056b3;
     }
-     .report-btn-global {
+    #download-report-globale {
         background-color: #ffc107;
         color: #212529;
         font-weight: bold;
     }
-    .report-btn-global:hover {
+    #download-report-globale:hover {
         background-color: #e0a800;
     }
     #search-tratto {
@@ -96,7 +97,7 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 15px;
-      flex-shrink: 0; /* Non si restringe */
+      flex-shrink: 0;
     }
     .filtri-container label { font-weight: bold; }
     .filtri-container input {
@@ -115,10 +116,10 @@
     .grafici-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr; /* Righe flessibili */
+      grid-template-rows: 1fr 1fr;
       gap: 20px;
-      flex-grow: 1; /* Occupa lo spazio rimanente */
-      min-height: 0; /* Cruciale per il corretto funzionamento di flex/grid */
+      flex-grow: 1;
+      min-height: 0;
     }
     .grafico-card {
       background: #1e1e1e;
@@ -127,7 +128,7 @@
       display: flex;
       flex-direction: column;
       border: 1px solid #333;
-      min-height: 0; /* Permette al contenuto di restringersi */
+      min-height: 0;
     }
     .grafico-header {
       display: flex;
@@ -166,11 +167,8 @@
     }
     .chart-container {
         flex: 1;
-        position: relative; /* Necessario per il canvas */
+        position: relative;
         min-height: 0;
-    }
-    canvas {
-      /* Altezza e larghezza rimosse per renderle flessibili */
     }
     .custom-scrollbar {
         position: relative;
@@ -208,6 +206,7 @@
 <body>
   <div class="page-wrapper">
     <h1 id="titolo-tratto">Grafico Storico</h1>
+    <p id="date-range-info" style="color: #aaa; margin-top: -15px; margin-bottom: 20px;"></p>
 
     <div class="filtri-container">
       <div class="filtri-gruppo-sx">
@@ -221,7 +220,7 @@
           <input type="date" id="filtro-fine">
         </div>
         <button id="applica-filtro">Applica Filtro</button>
-        <button id="download-report-globale" class="report-btn-global">Scarica Report Globale</button>
+        <button id="download-report-globale">Scarica Report Globale</button>
       </div>
       <div class="search-container">
         <input type="text" id="search-tratto" placeholder="Cerca un altro tratto..." autocomplete="off">
@@ -231,7 +230,7 @@
     </div>
 
     <div class="grafici-container">
-      <div class="grafico-card">
+        <div class="grafico-card">
         <div class="grafico-header">
           <span class="grafico-title">Temperatura (°C)</span>
           <div class="button-group">
@@ -282,6 +281,7 @@
     const chartRefs = {};
     let datiPerReport = [];
 
+    // --- Funzioni di utilità (invariate) ---
     function triggerDownload(blob, filename) {
         const link = document.createElement('a');
         if (link.download !== undefined) {
@@ -294,16 +294,13 @@
             document.body.removeChild(link);
         }
     }
-
     function downloadGlobalCSV() {
         if (!datiPerReport || datiPerReport.length === 0) {
             alert('Nessun dato disponibile per generare il report.');
             return;
         }
-
         const header = 'Time,Temperatura_C,Precipitazione_mm,Vento_ms,Prob_Precipitazione_Percent';
         let csvRows = [header];
-
         datiPerReport.forEach(row => {
             const time = new Date(row.time).toISOString().slice(0, 19).replace('T', ' ');
             const temp = row.temperature;
@@ -312,7 +309,6 @@
             const prob = row.precipitation_probability;
             csvRows.push(`${time},${temp},${prec},${wind},${prob}`);
         });
-
         const csvContent = csvRows.join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const urlParams = new URLSearchParams(window.location.search);
@@ -320,23 +316,19 @@
         const filename = `Report_Globale_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
         triggerDownload(blob, filename);
     }
-
     function downloadChartCSV(chartId) {
         if (!datiPerReport || datiPerReport.length === 0) {
             alert('Nessun dato disponibile per generare il report.');
             return;
         }
-
         const reportConfig = {
             'temp': { header: 'Time,Temperatura_C', columns: ['time', 'temperature'] },
             'prec': { header: 'Time,Precipitazione_mm', columns: ['time', 'precipitation'] },
             'wind': { header: 'Time,Vento_ms', columns: ['time', 'windspeed'] },
             'prob': { header: 'Time,Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
         };
-
         const config = reportConfig[chartId];
         if (!config) return;
-
         let csvRows = [config.header];
         datiPerReport.forEach(row => {
             const time = new Date(row[config.columns[0]]).toISOString().slice(0, 19).replace('T', ' ');
@@ -350,33 +342,26 @@
         const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
         triggerDownload(blob, filename);
     }
-
     function setupCustomScrollbar(chart, scrollbarElement, allData) {
         const handle = scrollbarElement.querySelector('.scrollbar-handle');
         const track = scrollbarElement.querySelector('.scrollbar-track');
         let isDragging = false;
-
         const updateHandle = () => {
             if (!chart.scales || !chart.scales.x) return;
             const scale = chart.scales.x;
             const totalPoints = allData.length;
             const visiblePoints = scale.max - scale.min;
-
             if (totalPoints <= Math.ceil(visiblePoints)) {
                 scrollbarElement.style.display = 'none';
                 return;
             }
             scrollbarElement.style.display = 'block';
-
             const scrollableRange = totalPoints - visiblePoints;
             if (scrollableRange <= 0) return;
-
             const scrollPercent = scale.min / scrollableRange;
             const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
-
             handle.style.left = `${scrollPercent * maxHandleLeft}px`;
         };
-
         if (chart.options.plugins.zoom) {
             const existingOnPanComplete = chart.options.plugins.zoom.pan.onPanComplete;
             chart.options.plugins.zoom.pan.onPanComplete = (chartContext) => {
@@ -385,7 +370,6 @@
                 }
                 updateHandle();
             };
-
             const existingOnZoomComplete = chart.options.plugins.zoom.zoom.onZoomComplete;
             chart.options.plugins.zoom.zoom.onZoomComplete = (chartContext) => {
                 if (typeof existingOnZoomComplete === 'function') {
@@ -394,41 +378,31 @@
                 updateHandle();
             };
         }
-
         setTimeout(updateHandle, 500);
-
         handle.addEventListener('mousedown', (e) => {
             isDragging = true;
             handle.style.cursor = 'grabbing';
             document.body.style.cursor = 'grabbing';
             document.body.style.userSelect = 'none';
-
             const startX = e.pageX;
             const startLeft = handle.offsetLeft;
             const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
-
             const scale = chart.scales.x;
             const totalPoints = allData.length;
             const initialVisiblePoints = scale.max - scale.min;
             const scrollableRange = totalPoints - initialVisiblePoints;
-
             const onMouseMove = (moveEvent) => {
                 if (!isDragging || scrollableRange <= 0) return;
                 moveEvent.preventDefault();
-
                 const deltaX = moveEvent.pageX - startX;
                 let newLeft = startLeft + deltaX;
                 newLeft = Math.max(0, Math.min(newLeft, maxHandleLeft));
                 handle.style.left = `${newLeft}px`;
-
                 const positionPercent = newLeft / maxHandleLeft;
-
                 const newMin = positionPercent * scrollableRange;
                 const newMax = newMin + initialVisiblePoints;
-
                 chart.zoomScale('x', {min: newMin, max: newMax}, 'none');
             };
-
             const onMouseUp = () => {
                 isDragging = false;
                 handle.style.cursor = 'grab';
@@ -437,22 +411,54 @@
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
             };
-
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
     }
-
     function resetZoom(id) {
       if (chartRefs[id]) {
         chartRefs[id].resetZoom();
       }
     }
-
     function resetAllZooms() {
       Object.keys(chartRefs).forEach(id => {
         if (chartRefs[id]) chartRefs[id].resetZoom();
       });
+    }
+
+    // --- NUOVA AGGIUNTA: Funzione per caricare l'intervallo di date ---
+    function caricaIntervalloDate(tratto) {
+      const infoElement = document.getElementById('date-range-info');
+      if (!tratto) {
+        infoElement.textContent = 'Selezionare un tratto per visualizzare l\'intervallo date disponibili.';
+        return;
+      }
+
+      // Chiamata al nuovo endpoint API /api/data_range
+      fetch(`/api/data_range?tratto=${encodeURIComponent(tratto)}`)
+        .then(res => {
+          if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.errore || "Errore API") });
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.start_date && data.end_date) {
+            // Formattiamo le date in formato italiano (GG/MM/AAAA)
+            const startDate = new Date(data.start_date);
+            const endDate = new Date(data.end_date);
+            const options = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' };
+            const formattedStart = startDate.toLocaleDateString('it-IT', options);
+            const formattedEnd = endDate.toLocaleDateString('it-IT', options);
+            infoElement.textContent = `Periodo dati storici: dal ${formattedStart} al ${formattedEnd}`;
+          } else {
+            infoElement.textContent = 'Intervallo date non disponibile per questo tratto.';
+          }
+        })
+        .catch(err => {
+          console.error('Errore nel recupero dell\'intervallo date:', err);
+          infoElement.textContent = `Impossibile caricare l'intervallo date: ${err.message}`;
+        });
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -460,12 +466,14 @@
       const tratto = urlParams.get('tratto');
       document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto || 'N/D'}`;
 
+      // --- NUOVA AGGIUNTA: Chiamata alla funzione per caricare le date ---
+      caricaIntervalloDate(tratto);
+
       let currentRoad = '';
       if (tratto) {
         currentRoad = tratto.split(' ')[0];
         caricaDati(tratto, null, null);
       }
-
       document.getElementById('applica-filtro').addEventListener('click', () => {
         const inizio = document.getElementById('filtro-inizio').value;
         const fine = document.getElementById('filtro-fine').value;
@@ -473,14 +481,11 @@
         if (new Date(fine) < new Date(inizio)) return alert("La data di fine non può precedere quella di inizio.");
         caricaDati(tratto, inizio, fine);
       });
-
       document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
       document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
-
       const searchInput = document.getElementById('search-tratto');
       const suggestionsContainer = document.getElementById('suggestions-container');
       const searchButton = document.getElementById('search-button');
-
       searchButton.addEventListener('click', () => {
         const nuovoTratto = searchInput.value;
         if (nuovoTratto) {
@@ -489,7 +494,6 @@
           alert('Inserisci un nome di tratto da cercare.');
         }
       });
-
       searchInput.addEventListener('input', () => {
         const query = searchInput.value;
         if (query.length < 2) {
@@ -497,12 +501,10 @@
           suggestionsContainer.style.display = 'none';
           return;
         }
-
         let apiUrl = `/api/tratti?search=${encodeURIComponent(query)}`;
         if (currentRoad) {
             apiUrl += `&strada=${encodeURIComponent(currentRoad)}`;
         }
-
         fetch(apiUrl)
             .then(res => res.json())
             .then(suggestions => {
@@ -530,17 +532,14 @@
             });
       });
     });
-
     function caricaDati(tratto, startDate, endDate) {
       let url = `/api/dati_tratto?tratto=${encodeURIComponent(tratto)}`;
       if (startDate && endDate) {
         url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
       }
-
       Object.values(chartRefs).forEach(chart => {
           if (chart && typeof chart.destroy === 'function') chart.destroy();
       });
-
       fetch(url)
         .then(res => res.ok ? res.json() : res.json().then(err => { throw new Error(err.errore || "Errore API") }))
         .then(dati => {
@@ -550,7 +549,6 @@
         })
         .catch(err => alert(`Errore nel caricamento dei dati: ${err.message}`));
     }
-
     function creaGrafici(dati) {
       const labels = dati.map(d => new Date(d.time).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', timeZone: 'UTC' }));
       const config = (label, data, color, yMin, yMax) => ({
@@ -564,12 +562,19 @@
           maintainAspectRatio: false,
           plugins: { zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' } } },
           scales: {
-            x: { ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 45, minRotation: 0 } },
-            y: { min: yMin, max: yMax, grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2 } }
+            x: {
+                ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 45, minRotation: 0, color: '#aaa' },
+                grid: { color: '#444'}
+            },
+            y: {
+                min: yMin,
+                max: yMax,
+                grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2, color: '#444' },
+                ticks: { color: '#aaa' }
+            }
           }
         }
       });
-
       const ids = ['temp', 'prec', 'wind', 'prob'];
       const configs = {
           'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 40),
@@ -577,13 +582,11 @@
           'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', 0, 10),
           'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)
       };
-
       const probConfig = configs['prob'];
       probConfig.type = 'bar';
       probConfig.data.datasets[0].backgroundColor = '#ffc107';
       delete probConfig.data.datasets[0].tension;
       delete probConfig.data.datasets[0].fill;
-
       ids.forEach(id => {
           chartRefs[id] = new Chart(document.getElementById(id), configs[id]);
           setupCustomScrollbar(chartRefs[id], document.getElementById(`scrollbar-${id}`), dati);
