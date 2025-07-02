@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Grafico Previsionale</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+  <style>
+    /* ... CSS (invariato) ... */
+    html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #121212;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      color: #e0e0e0;
+    }
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #f0f0f0;
+      flex-shrink: 0;
+    }
+    .aggiornamento-info {
+        margin-bottom: 10px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    #ultimo-download {
+        font-size: 0.9em;
+        color: #aaa;
+    }
+    #countdown-refresh {
+        font-size: 0.9em;
+        color: #ffc107; /* Colore ambrato per evidenziare */
+        font-weight: bold;
+    }
+    .controlli-superiori {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: #1e1e1e;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      flex-wrap: wrap;
+      gap: 15px;
+      flex-shrink: 0;
+    }
+    .search-container {
+      position: relative;
+      display: flex;
+      gap: 10px;
+    }
+    #reset-zoom-globale, #search-button, .report-btn-global {
+      padding: 8px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #reset-zoom-globale:hover, #search-button:hover, .report-btn-global:hover {
+      background-color: #0056b3;
+    }
+     .report-btn-global {
+        background-color: #ffc107;
+        color: #212529;
+        font-weight: bold;
+    }
+    .report-btn-global:hover {
+        background-color: #e0a800;
+    }
+    #search-tratto {
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: #252525;
+      color: #e0e0e0;
+      width: 250px;
+    }
+    .suggestions-container {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #252525;
+        border: 1px solid #333;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .suggestion-item {
+        padding: 10px;
+        cursor: pointer;
+        color: #e0e0e0;
+    }
+    .suggestion-item:hover {
+        background-color: #007bff;
+        color: white;
+    }
+    .grafici-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 20px;
+      flex-grow: 1;
+      min-height: 0;
+    }
+    .grafico-card {
+      background: #1e1e1e;
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #333;
+      min-height: 0;
+    }
+    .grafico-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .grafico-title {
+      font-weight: bold;
+      font-size: 16px;
+      color: #f0f0f0;
+    }
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+    .reset-btn, .report-btn {
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .reset-btn {
+        background-color: #007bff;
+    }
+    .report-btn {
+        background-color: #28a745;
+    }
+    .reset-btn:hover {
+        background-color: #0056b3;
+    }
+    .report-btn:hover {
+        background-color: #218838;
+    }
+    .chart-container {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+    }
+    .custom-scrollbar {
+        position: relative;
+        width: 100%;
+        height: 20px;
+        margin-top: 8px;
+        flex-shrink: 0;
+    }
+    .scrollbar-track {
+        position: absolute;
+        width: 100%;
+        height: 4px;
+        background-color: #444;
+        top: 50%;
+        transform: translateY(-50%);
+        border-radius: 2px;
+    }
+    .scrollbar-handle {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background-color: #007bff;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: grab;
+        user-select: none;
+    }
+    @media (max-width: 1000px) {
+      .grafici-container { grid-template-columns: 1fr; }
+    }
+     @media (max-width: 600px) {
+        .controlli-superiori {
+            justify-content: center;
+        }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+  <h1 id="titolo-tratto">Grafico Previsionale</h1>
+
+  <div class="aggiornamento-info">
+      <div id="ultimo-download"></div>
+      <div id="countdown-refresh"></div>
+  </div>
+
+  <div class="controlli-superiori">
+    <div class="button-group">
+      <button id="reset-zoom-globale">Reset Zoom Globale</button>
+      <button id="download-report-globale" class="report-btn-global">Scarica Report Globale</button>
+    </div>
+    <div class="search-container">
+      <input type="text" id="search-tratto" placeholder="Cerca un altro tratto..." autocomplete="off">
+      <div id="suggestions-container" class="suggestions-container"></div>
+      <button id="search-button">Cerca</button>
+    </div>
+  </div>
+
+  <div class="grafici-container">
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Temperatura (°C)</span>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('temp')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="temp"></canvas></div>
+      <div class="custom-scrollbar" id="scrollbar-temp"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
+    </div>
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Precipitazione (mm)</span>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('prec')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('prec')">Reset Zoom</button>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="prec"></canvas></div>
+      <div class="custom-scrollbar" id="scrollbar-prec"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
+    </div>
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Velocità Vento (m/s)</span>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('wind')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('wind')">Reset Zoom</button>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="wind"></canvas></div>
+      <div class="custom-scrollbar" id="scrollbar-wind"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
+    </div>
+    <div class="grafico-card">
+      <div class="grafico-header">
+        <span class="grafico-title">Prob. Precipitazione (%)</span>
+        <div class="button-group">
+            <button class="report-btn" onclick="downloadChartCSV('prob')">Scarica Report</button>
+            <button class="reset-btn" onclick="resetZoom('prob')">Reset Zoom</button>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="prob"></canvas></div>
+      <div class="custom-scrollbar" id="scrollbar-prob"><div class="scrollbar-track"></div><div class="scrollbar-handle"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+    const chartRefs = {};
+    let datiPerReport = [];
+
+    // --- Funzioni per report, scrollbar e zoom (INVARIATE) ---
+    function triggerDownload(blob, filename) {
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    function downloadGlobalCSV() {
+        if (!datiPerReport || datiPerReport.length === 0) {
+            alert('Nessun dato disponibile per generare il report.');
+            return;
+        }
+        const header = 'Time,Temperatura_C,Precipitazione_mm,Vento_ms,Prob_Precipitazione_Percent';
+        let csvRows = [header];
+        datiPerReport.forEach(row => {
+            const time = new Date(row.time).toISOString().slice(0, 19).replace('T', ' ');
+            const temp = row.temperature;
+            const prec = row.precipitation;
+            const wind = row.windspeed;
+            const prob = row.precipitation_probability;
+            csvRows.push(`${time},${temp},${prec},${wind},${prob}`);
+        });
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const urlParams = new URLSearchParams(window.location.search);
+        const tratto = urlParams.get('tratto') || 'report';
+        const filename = `Report_Globale_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
+        triggerDownload(blob, filename);
+    }
+
+    function downloadChartCSV(chartId) {
+        if (!datiPerReport || datiPerReport.length === 0) {
+            alert('Nessun dato disponibile per generare il report.');
+            return;
+        }
+        const reportConfig = {
+            'temp': { header: 'Time,Temperatura_C', columns: ['time', 'temperature'] },
+            'prec': { header: 'Time,Precipitazione_mm', columns: ['time', 'precipitation'] },
+            'wind': { header: 'Time,Vento_ms', columns: ['time', 'windspeed'] },
+            'prob': { header: 'Time,Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
+        };
+        const config = reportConfig[chartId];
+        if (!config) return;
+        let csvRows = [config.header];
+        datiPerReport.forEach(row => {
+            const time = new Date(row[config.columns[0]]).toISOString().slice(0, 19).replace('T', ' ');
+            const value = row[config.columns[1]];
+            csvRows.push(`${time},${value}`);
+        });
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const urlParams = new URLSearchParams(window.location.search);
+        const tratto = urlParams.get('tratto') || 'report';
+        const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
+        triggerDownload(blob, filename);
+    }
+
+    function setupCustomScrollbar(chart, scrollbarElement, allData) {
+        // Questa funzione rimane invariata
+        const handle = scrollbarElement.querySelector('.scrollbar-handle');
+        const track = scrollbarElement.querySelector('.scrollbar-track');
+        let isDragging = false;
+        const updateHandle = () => {
+            if (!chart.scales || !chart.scales.x) return;
+            const scale = chart.scales.x;
+            const totalPoints = allData.length;
+            const visiblePoints = scale.max - scale.min;
+            if (totalPoints <= Math.ceil(visiblePoints)) {
+                scrollbarElement.style.display = 'none';
+                return;
+            }
+            scrollbarElement.style.display = 'block';
+            const scrollableRange = totalPoints - visiblePoints;
+            if (scrollableRange <= 0) return;
+            const scrollPercent = scale.min / scrollableRange;
+            const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
+            handle.style.left = `${scrollPercent * maxHandleLeft}px`;
+        };
+        if (chart.options.plugins.zoom) {
+            const existingOnPanComplete = chart.options.plugins.zoom.pan.onPanComplete;
+            chart.options.plugins.zoom.pan.onPanComplete = (chartContext) => {
+                if (typeof existingOnPanComplete === 'function') existingOnPanComplete(chartContext);
+                updateHandle();
+            };
+            const existingOnZoomComplete = chart.options.plugins.zoom.zoom.onZoomComplete;
+            chart.options.plugins.zoom.zoom.onZoomComplete = (chartContext) => {
+                if (typeof existingOnZoomComplete === 'function') existingOnZoomComplete(chartContext);
+                updateHandle();
+            };
+        }
+        setTimeout(updateHandle, 500);
+        handle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            handle.style.cursor = 'grabbing';
+            document.body.style.cursor = 'grabbing';
+            document.body.style.userSelect = 'none';
+            const startX = e.pageX;
+            const startLeft = handle.offsetLeft;
+            const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
+            const scale = chart.scales.x;
+            const totalPoints = allData.length;
+            const initialVisiblePoints = scale.max - scale.min;
+            const scrollableRange = totalPoints - initialVisiblePoints;
+            const onMouseMove = (moveEvent) => {
+                if (!isDragging || scrollableRange <= 0) return;
+                moveEvent.preventDefault();
+                const deltaX = moveEvent.pageX - startX;
+                let newLeft = startLeft + deltaX;
+                newLeft = Math.max(0, Math.min(newLeft, maxHandleLeft));
+                handle.style.left = `${newLeft}px`;
+                const positionPercent = newLeft / maxHandleLeft;
+                const newMin = positionPercent * scrollableRange;
+                const newMax = newMin + initialVisiblePoints;
+                chart.zoomScale('x', {min: newMin, max: newMax}, 'none');
+            };
+            const onMouseUp = () => {
+                isDragging = false;
+                handle.style.cursor = 'grab';
+                document.body.style.cursor = 'default';
+                document.body.style.userSelect = '';
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    }
+
+    function resetZoom(id) {
+      if (chartRefs[id]) {
+        chartRefs[id].resetZoom();
+      }
+    }
+
+    function resetAllZooms() {
+      Object.keys(chartRefs).forEach(id => {
+        if (chartRefs[id]) chartRefs[id].resetZoom();
+      });
+    }
+
+    // --- NUOVA LOGICA DI POLLING PER IL REFRESH ---
+    function setupUpdatePolling(tratto, initialTimestamp) {
+        const POLLING_INTERVAL_MS = 60000; // Controlla ogni 60 secondi
+        const countdownElement = document.getElementById('countdown-refresh');
+
+        if (!tratto || !initialTimestamp) {
+            countdownElement.textContent = "Informazioni per l'aggiornamento automatico mancanti.";
+            return;
+        }
+
+        console.log(`Polling iniziato. Timestamp iniziale della pagina: ${initialTimestamp}`);
+
+        const check = () => {
+            // Chiama il nuovo endpoint API creato in app.py
+            fetch(`/api/check_update?tratto=${encodeURIComponent(tratto)}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Risposta del server non valida durante il polling.');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.latest_update) {
+                        const latestTimestamp = data.latest_update;
+
+                        // Confronta il timestamp del DB con quello memorizzato al caricamento della pagina
+                        if (new Date(latestTimestamp) > new Date(initialTimestamp)) {
+                            countdownElement.textContent = "Nuovi dati disponibili! Ricarico la pagina...";
+                            // Attendi 2 secondi per permettere all'utente di leggere il messaggio, poi ricarica
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            countdownElement.textContent = "I dati visualizzati sono i più recenti. Prossimo controllo tra un minuto.";
+                        }
+                    } else {
+                        countdownElement.textContent = "In attesa di dati per questo tratto. Controllo di nuovo tra un minuto.";
+                    }
+                })
+                .catch(err => {
+                    console.error("Errore durante il polling degli aggiornamenti:", err);
+                    countdownElement.textContent = "Errore di connessione durante la verifica di nuovi dati.";
+                });
+        };
+
+        // Avvia il timer che eseguirà la funzione 'check' a intervalli regolari
+        setInterval(check, POLLING_INTERVAL_MS);
+
+        // Imposta il messaggio iniziale
+        countdownElement.textContent = "Verifica automatica di nuovi dati attiva.";
+    }
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tratto = urlParams.get('tratto');
+
+      // --- Blocco Titolo e Dati Aggiornati ---
+      let currentRoad = '';
+      if (tratto) {
+          currentRoad = tratto.split(' ')[0];
+          document.getElementById('titolo-tratto').textContent = `Grafico Previsionale - ${tratto}`;
+      }
+
+      const ultimoDownloadVal = "{{ ultimo_download }}";
+      const ultimoDownloadDate = new Date(ultimoDownloadVal);
+      document.getElementById('ultimo-download').textContent = `Dati aggiornati alle: ${ultimoDownloadDate.toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'medium' })}`;
+
+      // --- Inizializzazione Dati e Grafici ---
+      const dati = JSON.parse('{{ dati | tojson | safe }}');
+      datiPerReport = dati;
+      creaGrafici(dati);
+
+      // --- Associazione eventi ai pulsanti ---
+      document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
+      document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
+
+      // --- AVVIO DELLA NUOVA LOGICA DI POLLING ---
+      // Convertiamo la data Jinja in formato ISO per un confronto affidabile e la passiamo alla nostra nuova funzione
+      const initialTimestampISO = ultimoDownloadDate.toISOString();
+      setupUpdatePolling(tratto, initialTimestampISO);
+
+      // --- Logica per la ricerca (invariata) ---
+      const searchInput = document.getElementById('search-tratto');
+      const suggestionsContainer = document.getElementById('suggestions-container');
+      const searchButton = document.getElementById('search-button');
+
+      searchButton.addEventListener('click', () => {
+        const nuovoTratto = searchInput.value;
+        if (nuovoTratto) {
+          window.location.href = `/grafico?tratto=${encodeURIComponent(nuovoTratto)}&modalita=previsionale`;
+        } else {
+          alert('Inserisci un nome di tratto da cercare.');
+        }
+      });
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value;
+        if (query.length < 2) {
+          suggestionsContainer.innerHTML = '';
+          suggestionsContainer.style.display = 'none';
+          return;
+        }
+        let apiUrl = `/api/tratti?search=${encodeURIComponent(query)}`;
+        if (currentRoad) {
+            apiUrl += `&strada=${encodeURIComponent(currentRoad)}`;
+        }
+        fetch(apiUrl)
+            .then(res => res.json())
+            .then(suggestions => {
+                suggestionsContainer.innerHTML = '';
+                if (suggestions.length > 0) {
+                    suggestions.forEach(suggestion => {
+                        const item = document.createElement('div');
+                        item.classList.add('suggestion-item');
+                        item.textContent = suggestion;
+                        item.addEventListener('click', () => {
+                            searchInput.value = suggestion;
+                            suggestionsContainer.style.display = 'none';
+                            searchButton.click();
+                        });
+                        suggestionsContainer.appendChild(item);
+                    });
+                    suggestionsContainer.style.display = 'block';
+                } else {
+                    suggestionsContainer.style.display = 'none';
+                }
+            })
+            .catch(err => {
+                console.error('Errore nel recupero dei suggerimenti:', err);
+                suggestionsContainer.style.display = 'none';
+            });
+      });
+    });
+
+    function creaGrafici(dati) {
+      const labels = dati.map(d => new Date(d.time).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', timeZone: 'UTC' }));
+      const config = (label, data, color, yMin, yMax) => ({
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{ label, data, borderColor: color, backgroundColor: color + '22', tension: 0.3, fill: true, pointRadius: 4, pointHoverRadius: 6 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            zoom: {
+              pan: { enabled: true, mode: 'x' },
+              zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+            },
+            legend: {
+                labels: {
+                    color: '#e0e0e0'
+                }
+            }
+          },
+          scales: {
+            x: {
+                ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 45, minRotation: 0, color: '#aaa' },
+                grid: { color: '#444' }
+            },
+            y: {
+                min: yMin,
+                max: yMax,
+                grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2, color: '#444' },
+                ticks: { color: '#aaa' }
+            }
+          }
+        }
+      });
+      const ids = ['temp', 'prec', 'wind', 'prob'];
+      const configs = {
+          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 45),
+          'prec': config('Precipitazione (mm)', dati.map(d => d.precipitation), '#007bff', 0, 50),
+          'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', 0, 10),
+          'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)
+      };
+      const probConfig = configs['prob'];
+      probConfig.type = 'bar';
+      probConfig.data.datasets[0].backgroundColor = '#ffc107';
+      delete probConfig.data.datasets[0].tension;
+      delete probConfig.data.datasets[0].fill;
+
+      ids.forEach(id => {
+          const chartElement = document.getElementById(id);
+          if (chartElement) {
+              chartRefs[id] = new Chart(chartElement, configs[id]);
+              setupCustomScrollbar(chartRefs[id], document.getElementById(`scrollbar-${id}`), dati);
+          }
+      });
+    }
+</script>
+</body>
+</html>

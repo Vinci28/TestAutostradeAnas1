@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ANAS - Storico Dati</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    #main-header { position: absolute; top: 0; left: 0; right: 0; height: 60px; background: #fff; display: flex; align-items: center; padding: 0 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); z-index: 1002; }
+    #main-header img { height: 50px; }
+    #map { position:absolute; top: 60px; bottom: 20px; left: 0; right: 0; }
+    #main-footer { position: absolute; bottom: 0; left: 0; right: 0; height: 20px; background: #f1f1f1; color: #555; font-size: 9px; text-align: center; line-height: 20px; z-index: 1002; border-top: 1px solid #ddd; }
+    .leaflet-top.leaflet-left { top: 75px; }
+    #viewSwitch { top: 75px; left: 60px; }
+    #sidebar { top: 75px; }
+    .leaflet-top.leaflet-left .leaflet-control-layers { margin-top: 55px; }
+    #viewSwitch { position:absolute; z-index:1000; display: flex; border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); box-shadow: 0 1px 5px rgba(0,0,0,0.2); }
+    #viewSwitch button { background: #fff; color: #333; border: none; padding: 8px 16px; cursor: pointer; font-size: 14px; transition: background-color 0.2s; }
+    #viewSwitch button:hover { background: #f0f0f0; }
+    #viewSwitch button.active { background: #00338D; color: #fff; font-weight: bold; }
+    #sidebar { position:absolute; right:10px; width:280px; background:rgba(255,255,255,0.97); padding:12px; border-radius:8px; box-shadow:0 0 20px rgba(0,0,0,0.2); z-index: 2000; }
+    #sidebar label { display: block; margin-bottom: 5px; font-weight: 600; color: #333; font-size: 14px; margin-top: 12px;}
+    #sidebar select, #sidebar input { width:100%; box-sizing: border-box; margin-top: 4px; padding:8px; font-size:14px; border-radius: 6px; border: 1px solid #ccc; transition: all 0.2s; }
+    #sidebar select:focus, #sidebar input:focus { border-color: #00338D; box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.15); outline: none; }
+    #search-container { position: relative; }
+    #segmentList { display: none; position:absolute; top: 100%; left:0; right: 0; max-height:200px; overflow-y:auto; background:rgba(255,255,255,0.97); padding:8px; border-radius:8px; box-shadow:0 5px 10px rgba(0,0,0,0.2); font-size:12px; z-index:2001; }
+    #segmentList .item { padding:5px 8px; cursor:pointer; border-bottom:1px solid #eee; }
+    #segmentList .item:last-child { border-bottom: none; }
+    #segmentList .item:hover { background: #FFC100; color: #000; }
+    #selected-tratto-display { margin-top: 8px; padding: 8px; background-color: #e9ecef; border-radius: 4px; font-size: 12px; color: #495057; font-style: italic; text-align: center; border: 1px solid #dee2e6; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <header id="main-header">
+      <img src="/static/images/LOGO_ANAS_FS_RGB.png" alt="Logo ANAS Gruppo FS Italiane"/>
+  </header>
+  <div id="map"></div>
+  <div id="viewSwitch">
+    <button class="active">Storico</button>
+    <button onclick="location.href='/previsionale'">Previsionale</button>
+  </div>
+  <div id="sidebar">
+    <label for="stradaSelect">1. Seleziona Strada</label>
+    <select id="stradaSelect">
+      <option value="A90">A90</option>
+      <option value="SS51">SS51</option>
+      <option value="SS675">SS675</option>
+    </select>
+    <label for="kmSearch">2. Seleziona Tratto</label>
+    <div id="search-container">
+        <input id="kmSearch" placeholder="Cerca o clicca un tratto sulla mappa..." type="text"/>
+        <div id="segmentList"></div>
+    </div>
+    <div id="selected-tratto-display">Nessun tratto selezionato</div>
+
+    <label for="startDate">3. Data inizio (opzionale)</label>
+    <input type="date" id="startDate"/>
+    <label for="endDate">4. Data fine (opzionale)</label>
+    <input type="date" id="endDate"/>
+  </div>
+  <footer id="main-footer">
+    &copy; 2024 ANAS S.p.A. | Società del Polo Infrastrutture del Gruppo FS Italiane - P.IVA 01122701000
+  </footer>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const bounds = { A90:[[41.8,12.3],[42.0,12.6]], SS51:[[46.3,12.2],[46.7,12.4]], SS675:[[42.4,12.0],[42.6,12.3]] };
+    const baseMaps = {
+        "Mappa Grigia": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO' }),
+        "Mappa Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }),
+        "Mappa Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' })
+    };
+    const renderer = L.canvas({ padding:0.5 });
+    const map = L.map('map',{ preferCanvas:true, renderer, zoomControl: false, layers: [baseMaps["Mappa Grigia"]] }).setView([42,12.5],7);
+    L.control.zoom({ position: 'topleft' }).addTo(map);
+    L.control.layers(baseMaps, null, { position: 'topleft' }).addTo(map);
+
+    let segmentsData = null, polylines = {}, selectedTratto = null;
+    let currentStrada = 'A90';
+
+    const stradaSelect = document.getElementById('stradaSelect');
+    const kmSearch = document.getElementById('kmSearch');
+    const segmentListContainer = document.getElementById('segmentList');
+    const selectedTrattoDisplay = document.getElementById('selected-tratto-display');
+    const COLORS = { DEFAULT: '#00338D', SELECTED: '#FFC100' };
+
+    function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); }; }
+
+    async function fetchSegmentsData(){
+      if(!segmentsData){ segmentsData = await fetch('/static/jsons/tratti_strada_allineati.json').then(r=>r.json()); }
+    }
+
+    function displaySegments(){
+      Object.values(polylines).forEach(p => map.removeLayer(p));
+      polylines = {}; selectedTratto = null;
+      segmentListContainer.innerHTML = '';
+      const filterText = kmSearch.value.toLowerCase();
+      const stradaLower = currentStrada.toLowerCase();
+      const segmentsToShow = segmentsData.filter(t => t.nome.toLowerCase().includes(stradaLower) && t.nome.toLowerCase().includes(filterText));
+
+      segmentsToShow.forEach(tratto => {
+        const poly = L.polyline(tratto.punti.map(p => [p.lat, p.lon]), { renderer, color: COLORS.DEFAULT, weight: 5, nome: tratto.nome })
+            .addTo(map).bindTooltip(tratto.nome, { direction: 'top', sticky: true }).on('click', handleTrattoClick);
+        polylines[tratto.nome] = poly;
+        const div = document.createElement('div');
+        div.className = 'item'; div.textContent = tratto.nome;
+        div.onclick = () => { handleTrattoClick({ target: poly }); segmentListContainer.style.display = 'none'; };
+        segmentListContainer.appendChild(div);
+      });
+
+      if (filterText === '') { map.fitBounds(bounds[currentStrada]); }
+      updateUI();
+    }
+
+    // *** FUNZIONE CHIAVE MODIFICATA ***
+    // Ora legge le date dai campi input e le passa come parametri URL.
+    function handleTrattoClick(e) {
+        const clickedPoly = e.target;
+        const nomeTratto = clickedPoly.options.nome;
+
+        // Evidenziazione visiva sulla mappa
+        if (selectedTratto && polylines[selectedTratto]) {
+            polylines[selectedTratto].setStyle({ color: COLORS.DEFAULT, weight: 5 });
+        }
+        selectedTratto = nomeTratto;
+        clickedPoly.setStyle({ color: COLORS.SELECTED, weight: 7 });
+        clickedPoly.bringToFront();
+        kmSearch.value = nomeTratto;
+
+        updateUI();
+
+        // Legge le date dai campi di input
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        // Costruisce i parametri per l'URL
+        const params = new URLSearchParams();
+        params.append('tratto', nomeTratto);
+        params.append('modalita', 'storico');
+
+        // Aggiunge le date solo se sono state inserite
+        if (startDate) {
+            params.append('start_date', startDate);
+        }
+        if (endDate) {
+            params.append('end_date', endDate);
+        }
+
+        // Apre la pagina dei grafici con i parametri corretti
+        window.open(`/grafico?${params.toString()}`, '_blank');
+    }
+
+    function updateUI() {
+        if (selectedTratto) {
+            selectedTrattoDisplay.textContent = selectedTratto;
+            selectedTrattoDisplay.style.fontStyle = 'normal';
+            selectedTrattoDisplay.style.color = '#111';
+        } else {
+            selectedTrattoDisplay.textContent = 'Nessun tratto selezionato';
+            selectedTrattoDisplay.style.fontStyle = 'italic';
+            selectedTrattoDisplay.style.color = '#495057';
+        }
+    }
+
+    // --- Event Listeners ---
+    stradaSelect.onchange = async function() {
+      currentStrada = this.value; kmSearch.value = '';
+      segmentListContainer.style.display = 'none';
+      await fetchSegmentsData(); displaySegments();
+    };
+
+    kmSearch.addEventListener('input', debounce(() => {
+        segmentListContainer.style.display = kmSearch.value.length > 0 ? 'block' : 'none';
+        displaySegments();
+    }, 300));
+
+    // Esecuzione iniziale
+    (async()=>{
+      await fetchSegmentsData();
+      displaySegments();
+      updateUI();
+    })();
+  </script>
+</body>
+</html>
