@@ -426,25 +426,16 @@
       });
     }
 
-    // --- NUOVA AGGIUNTA: Funzione per caricare l'intervallo di date ---
     function caricaIntervalloDate(tratto) {
       const infoElement = document.getElementById('date-range-info');
       if (!tratto) {
         infoElement.textContent = 'Selezionare un tratto per visualizzare l\'intervallo date disponibili.';
         return;
       }
-
-      // Chiamata al nuovo endpoint API /api/data_range
       fetch(`/api/data_range?tratto=${encodeURIComponent(tratto)}`)
-        .then(res => {
-          if (!res.ok) {
-            return res.json().then(err => { throw new Error(err.errore || "Errore API") });
-          }
-          return res.json();
-        })
+        .then(res => res.ok ? res.json() : res.json().then(err => { throw new Error(err.errore || "Errore API") }))
         .then(data => {
           if (data.start_date && data.end_date) {
-            // Formattiamo le date in formato italiano (GG/MM/AAAA)
             const startDate = new Date(data.start_date);
             const endDate = new Date(data.end_date);
             const options = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' };
@@ -461,19 +452,34 @@
         });
     }
 
+    // *** LOGICA DI CARICAMENTO MODIFICATA ***
     document.addEventListener("DOMContentLoaded", () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tratto = urlParams.get('tratto');
-      document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto || 'N/D'}`;
 
-      // --- NUOVA AGGIUNTA: Chiamata alla funzione per caricare le date ---
+      // Legge le date dai parametri URL
+      const startDateFromUrl = urlParams.get('start_date');
+      const endDateFromUrl = urlParams.get('end_date');
+
+      document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto || 'N/D'}`;
       caricaIntervalloDate(tratto);
+
+      // Imposta i valori dei campi data se presenti nell'URL
+      if (startDateFromUrl) {
+          document.getElementById('filtro-inizio').value = startDateFromUrl;
+      }
+      if (endDateFromUrl) {
+          document.getElementById('filtro-fine').value = endDateFromUrl;
+      }
 
       let currentRoad = '';
       if (tratto) {
         currentRoad = tratto.split(' ')[0];
-        caricaDati(tratto, null, null);
+        // Carica i dati usando le date dall'URL (se presenti, altrimenti saranno null)
+        caricaDati(tratto, startDateFromUrl, endDateFromUrl);
       }
+
+      // L'evento del pulsante "Applica Filtro" rimane invariato
       document.getElementById('applica-filtro').addEventListener('click', () => {
         const inizio = document.getElementById('filtro-inizio').value;
         const fine = document.getElementById('filtro-fine').value;
@@ -481,6 +487,8 @@
         if (new Date(fine) < new Date(inizio)) return alert("La data di fine non può precedere quella di inizio.");
         caricaDati(tratto, inizio, fine);
       });
+
+      // Il resto degli event listener rimane invariato
       document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
       document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
       const searchInput = document.getElementById('search-tratto');
@@ -532,8 +540,10 @@
             });
       });
     });
+
     function caricaDati(tratto, startDate, endDate) {
       let url = `/api/dati_tratto?tratto=${encodeURIComponent(tratto)}`;
+      // Aggiunge i parametri data all'URL della API se sono definiti
       if (startDate && endDate) {
         url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
       }
@@ -543,7 +553,12 @@
       fetch(url)
         .then(res => res.ok ? res.json() : res.json().then(err => { throw new Error(err.errore || "Errore API") }))
         .then(dati => {
-          if (!dati.length) return alert("Nessun dato disponibile per il tratto e l'intervallo selezionato.");
+          if (!dati.length) {
+            alert("Nessun dato disponibile per il tratto e l'intervallo selezionato.");
+            datiPerReport = []; // Svuota i dati per evitare report errati
+            // Potresti voler nascondere o disabilitare i grafici qui
+            return;
+          }
           datiPerReport = dati;
           creaGrafici(dati);
         })
@@ -577,7 +592,7 @@
       });
       const ids = ['temp', 'prec', 'wind', 'prob'];
       const configs = {
-          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 40),
+          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 45),
           'prec': config('Precipitazione (mm)', dati.map(d => d.precipitation), '#007bff', 0, 50),
           'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', 0, 10),
           'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)

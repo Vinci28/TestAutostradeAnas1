@@ -17,7 +17,7 @@ import tempfile  # Usato per creare una cartella temporanea sicura
 # 🔁 MODIFICA QUESTA DATA per scegliere quale giorno elaborare.
 #    Lo script cercherà tutte le cartelle in DBFS che iniziano con questa data.
 #    Formato: "YYYY-MM-DD"
-DATA_ELABORAZIONE = "2025-06-27"
+DATA_ELABORAZIONE = "2025-07-02"
 
 # --- CONFIGURAZIONE DATABRICKS (presa da download_storici.py) ---
 DATABRICKS_INSTANCE = "https://adb-907348808966690.10.azuredatabricks.net"
@@ -35,10 +35,11 @@ DB_CONFIG = {
 }
 LOG_TABLE_NAME = "log_file_processati"
 
-# --- CONFIGURAZIONE STRADE (invariata) ---
+
 STRADE_CONFIG = {
-    "SS675": {"table_name": "dati_storici_SS675", "punto_tratto_map": {
-                            "Punto_1": "SS675 Km 0+000_SS675 Km 1+040",
+    "SS675": {
+        "table_name": "dati_storico_SS675",
+        "punto_tratto_map": {"Punto_1": "SS675 Km 0+000_SS675 Km 1+040",
                              "Punto_2": "SS675 Km 1+040_SS675 Km 2+079",
                              "Punto_3": "SS675 Km 2+079_SS675 Km 3+115",
                              "Punto_4": "SS675 Km 3+115_SS675 Km 4+108",
@@ -123,10 +124,13 @@ STRADE_CONFIG = {
                              "Punto_83": "SS675 Km 81+979_SS675 Km 82+978",
                              "Punto_84": "SS675 Km 82+978_SS675 Km 83+976",
                              "Punto_85": "SS675 Km 83+976_SS675 Km 84+979",
-                             "Punto_86": "SS675 Km 84+979_(R) Ch.85+116 Km"
-    }},
-"A90": {"table_name": "dati_storici_A90", "punto_tratto_map": {
-"Punto_1": "(R) Ch.0+000 Km_A90 Km 0+996",
+                             "Punto_86": "SS675 Km 84+979_SS675 Km 85+116"}
+    },
+    "A90": {
+        "table_name": "dati_storico_A90",
+        "punto_tratto_map": {
+            # === DA COMPLETARE: Inserisci qui la mappa per la A90 ===
+            "Punto_1": "A90 Km 0+000_A90 Km 0+996",
             "Punto_2": "A90 Km 0+996_A90 Km 1+982",
             "Punto_3": "A90 Km 1+982_A90 Km 2+963",
             "Punto_4": "A90 Km 2+963_A90 Km 3+951",
@@ -194,23 +198,26 @@ STRADE_CONFIG = {
             "Punto_66": "A90 Km 65+208_A90 Km 66+220",
             "Punto_67": "A90 Km 66+220_A90 Km 67+235",
             "Punto_68": "A90 Km 67+235_A90 Km 68+236",
-            "Punto_69": "A90 Km 68+236_(R) Ch.68+040 Km"
-}},
-"SS51": {"table_name": "dati_storici_SS51", "punto_tratto_map": {
-"Punto_1": "(R) Ch.0+000 Km_SS51 Km 0+778",
+            "Punto_69": "A90 Km 68+236_A90 Km 68+040"
+        }
+    },
+    "SS51": {
+        "table_name": "dati_storico_SS51",
+        "punto_tratto_map": {
+            "Punto_1": "SS51 Km 0+000_SS51 Km 0+778",
             "Punto_2": "SS51 Km 0+778_SS51 Km 1+693",
             "Punto_3": "SS51 Km 1+693_SS51 Km 2+684",
             "Punto_4": "SS51 Km 2+684_SS51 Km 3+687",
             "Punto_5": "SS51 Km 3+687_SS51 Km 4+677",
             "Punto_6": "SS51 Km 4+677_SS51 Km 5+672",
-            "Punto_7": "SS51 Km 5+672_(R) Ch.7+000 Km",
-            "Punto_8": "(R) Ch.7+000 Km_(R) Ch.8+000 Km",
-            "Punto_9": "(R) Ch.8+000 Km_(R) Ch.9+000 Km",
-            "Punto_10": "(R) Ch.9+000 Km_(R) Ch.10+000 Km",
-            "Punto_11": "(R) Ch.10+000 Km_(R) Ch.11+000 Km",
-            "Punto_12": "(R) Ch.11+000 Km_(R) Ch.12+000 Km",
-            "Punto_13": "(R) Ch.12+000 Km_(R) Ch.13+000 Km",
-            "Punto_14": "(R) Ch.13+000 Km_SS51 Km 13+774",
+            "Punto_7": "SS51 Km 5+672_SS51 Km 7+000",
+            "Punto_8": "SS51 Km 7+000_SS51 Km 8+000",
+            "Punto_9": "SS51 Km 8+000_SS51 Km 9+000",
+            "Punto_10": "SS51 Km 9+000_SS51 Km 10+000",
+            "Punto_11": "SS51 Km 10+000_SS51 Km 11+000",
+            "Punto_12": "SS51 Km 11+000_SS51 Km 12+000",
+            "Punto_13": "SS51 Km 12+000_SS51 Km 13+000",
+            "Punto_14": "SS51 Km 13+000_SS51 Km 13+774",
             "Punto_15": "SS51 Km 13+774_SS51 Km 14+782",
             "Punto_16": "SS51 Km 14+782_SS51 Km 15+791",
             "Punto_17": "SS51 Km 15+791_SS51 Km 16+797",
@@ -312,7 +319,8 @@ STRADE_CONFIG = {
             "Punto_113": "SS51 Km 116+041_SS51 Km 117+040",
             "Punto_114": "SS51 Km 117+040_SS51 Km 118+047",
             "Punto_115": "SS51 Km 118+047_SS51 Km 118+256"
-}}
+        }
+    }
 }
 
 CAMPI_INTERESSE = ["precipitation", "precipitation_probability", "precipitation_hours", "convective_precipitation",
