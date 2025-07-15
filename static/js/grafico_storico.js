@@ -39,17 +39,22 @@ function downloadGlobalCSV() {
         alert('Nessun dato disponibile per generare il report.');
         return;
     }
-    const header = 'Time,Temperatura_C,Precipitazione_mm,Vento_ms,Prob_Precipitazione_Percent';
+    // USA IL PUNTO E VIRGOLA come separatore
+    const header = 'Time;Temperatura_C;Precipitazione_mm;Vento_ms;Prob_Precipitazione_Percent';
     let csvRows = [header];
     datiPerReport.forEach(row => {
         const date = new Date(row.time);
         date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
         const time = date.toISOString().slice(0, 19).replace('T', ' ');
-        const temp = row.temperature;
-        const prec = row.precipitation;
-        const wind = row.windspeed;
-        const prob = row.precipitation_probability;
-        csvRows.push(`${time},${temp},${prec},${wind},${prob}`);
+
+        // Sostituisce il punto con la virgola per i decimali e gestisce valori null
+        const temp = row.temperature !== null && row.temperature !== undefined ? row.temperature.toString().replace('.', ',') : '';
+        const prec = row.precipitation !== null && row.precipitation !== undefined ? row.precipitation.toString().replace('.', ',') : '';
+        const wind = row.windspeed !== null && row.windspeed !== undefined ? row.windspeed.toString().replace('.', ',') : '';
+        const prob = row.precipitation_probability !== null && row.precipitation_probability !== undefined ? row.precipitation_probability.toString().replace('.', ',') : '';
+
+        // Usa il punto e virgola per unire
+        csvRows.push(`${time};${temp};${prec};${wind};${prob}`);
     });
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -58,16 +63,18 @@ function downloadGlobalCSV() {
     const filename = `Report_Globale_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
     triggerDownload(blob, filename);
 }
+
 function downloadChartCSV(chartId) {
     if (!datiPerReport || datiPerReport.length === 0) {
         alert('Nessun dato disponibile per generare il report.');
         return;
     }
+    // USA IL PUNTO E VIRGOLA come separatore
     const reportConfig = {
-        'temp': { header: 'Time,Temperatura_C', columns: ['time', 'temperature'] },
-        'prec': { header: 'Time,Precipitazione_mm', columns: ['time', 'precipitation'] },
-        'wind': { header: 'Time,Vento_ms', columns: ['time', 'windspeed'] },
-        'prob': { header: 'Time,Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
+        'temp': { header: 'Time;Temperatura_C', columns: ['time', 'temperature'] },
+        'prec': { header: 'Time;Precipitazione_mm', columns: ['time', 'precipitation'] },
+        'wind': { header: 'Time;Vento_ms', columns: ['time', 'windspeed'] },
+        'prob': { header: 'Time;Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
     };
     const config = reportConfig[chartId];
     if (!config) return;
@@ -76,8 +83,47 @@ function downloadChartCSV(chartId) {
         const date = new Date(row[config.columns[0]]);
         date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
         const time = date.toISOString().slice(0, 19).replace('T', ' ');
-        const value = row[config.columns[1]];
-        csvRows.push(`${time},${value}`);
+
+        // Sostituisce il punto con la virgola per i decimali e gestisce valori null
+        const valueRaw = row[config.columns[1]];
+        const value = valueRaw !== null && valueRaw !== undefined ? valueRaw.toString().replace('.', ',') : '';
+
+        // Usa il punto e virgola per unire
+        csvRows.push(`${time};${value}`);
+    });
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const urlParams = new URLSearchParams(window.location.search);
+    const tratto = urlParams.get('tratto') || 'report';
+    const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
+    triggerDownload(blob, filename);
+}
+function downloadChartCSV(chartId) {
+    if (!datiPerReport || datiPerReport.length === 0) {
+        alert('Nessun dato disponibile per generare il report.');
+        return;
+    }
+    // USA IL PUNTO E VIRGOLA come separatore
+    const reportConfig = {
+        'temp': { header: 'Time;Temperatura_C', columns: ['time', 'temperature'] },
+        'prec': { header: 'Time;Precipitazione_mm', columns: ['time', 'precipitation'] },
+        'wind': { header: 'Time;Vento_ms', columns: ['time', 'windspeed'] },
+        'prob': { header: 'Time;Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
+    };
+    const config = reportConfig[chartId];
+    if (!config) return;
+    let csvRows = [config.header];
+    datiPerReport.forEach(row => {
+        const date = new Date(row[config.columns[0]]);
+        date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
+        const time = date.toISOString().slice(0, 19).replace('T', ' ');
+
+        // Sostituisce il punto con la virgola per i decimali e gestisce valori null
+        const valueRaw = row[config.columns[1]];
+        const value = valueRaw !== null && valueRaw !== undefined ? valueRaw.toString().replace('.', ',') : '';
+
+        // Usa il punto e virgola per unire
+        csvRows.push(`${time};${value}`);
     });
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
