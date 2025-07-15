@@ -281,7 +281,6 @@
     const chartRefs = {};
     let datiPerReport = [];
 
-    // --- Funzioni di utilità (invariate) ---
     function triggerDownload(blob, filename) {
         const link = document.createElement('a');
         if (link.download !== undefined) {
@@ -452,19 +451,16 @@
         });
     }
 
-    // *** LOGICA DI CARICAMENTO MODIFICATA ***
     document.addEventListener("DOMContentLoaded", () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tratto = urlParams.get('tratto');
 
-      // Legge le date dai parametri URL
       const startDateFromUrl = urlParams.get('start_date');
       const endDateFromUrl = urlParams.get('end_date');
 
       document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto || 'N/D'}`;
       caricaIntervalloDate(tratto);
 
-      // Imposta i valori dei campi data se presenti nell'URL
       if (startDateFromUrl) {
           document.getElementById('filtro-inizio').value = startDateFromUrl;
       }
@@ -475,11 +471,9 @@
       let currentRoad = '';
       if (tratto) {
         currentRoad = tratto.split(' ')[0];
-        // Carica i dati usando le date dall'URL (se presenti, altrimenti saranno null)
         caricaDati(tratto, startDateFromUrl, endDateFromUrl);
       }
 
-      // L'evento del pulsante "Applica Filtro" rimane invariato
       document.getElementById('applica-filtro').addEventListener('click', () => {
         const inizio = document.getElementById('filtro-inizio').value;
         const fine = document.getElementById('filtro-fine').value;
@@ -488,7 +482,6 @@
         caricaDati(tratto, inizio, fine);
       });
 
-      // Il resto degli event listener rimane invariato
       document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
       document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
       const searchInput = document.getElementById('search-tratto');
@@ -543,7 +536,6 @@
 
     function caricaDati(tratto, startDate, endDate) {
       let url = `/api/dati_tratto?tratto=${encodeURIComponent(tratto)}`;
-      // Aggiunge i parametri data all'URL della API se sono definiti
       if (startDate && endDate) {
         url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
       }
@@ -555,8 +547,7 @@
         .then(dati => {
           if (!dati.length) {
             alert("Nessun dato disponibile per il tratto e l'intervallo selezionato.");
-            datiPerReport = []; // Svuota i dati per evitare report errati
-            // Potresti voler nascondere o disabilitare i grafici qui
+            datiPerReport = [];
             return;
           }
           datiPerReport = dati;
@@ -564,8 +555,32 @@
         })
         .catch(err => alert(`Errore nel caricamento dei dati: ${err.message}`));
     }
+
     function creaGrafici(dati) {
+      if (!dati || dati.length === 0) {
+          console.log("Nessun dato da visualizzare.");
+          return;
+      }
+
       const labels = dati.map(d => new Date(d.time).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', timeZone: 'UTC' }));
+
+      // --- MODIFICA INIZIO: Calcolo dinamico dei limiti ---
+      const temps = dati.map(d => d.temperature).filter(t => t !== null && t !== undefined);
+      const winds = dati.map(d => d.windspeed).filter(w => w !== null && w !== undefined);
+
+      let yMinTemp = -10, yMaxTemp = 40;
+      if (temps.length > 0) {
+          yMinTemp = Math.floor(Math.min(...temps) - 5);
+          yMaxTemp = Math.ceil(Math.max(...temps) + 5);
+      }
+
+      const yMinWind = 0;
+      let yMaxWind = 10;
+      if (winds.length > 0) {
+          yMaxWind = Math.ceil(Math.max(...winds) + 1);
+      }
+      // --- MODIFICA FINE ---
+
       const config = (label, data, color, yMin, yMax) => ({
         type: 'line',
         data: {
@@ -592,9 +607,9 @@
       });
       const ids = ['temp', 'prec', 'wind', 'prob'];
       const configs = {
-          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 45),
+          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', yMinTemp, yMaxTemp),
           'prec': config('Precipitazione (mm)', dati.map(d => d.precipitation), '#007bff', 0, 50),
-          'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', 0, 10),
+          'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', yMinWind, yMaxWind),
           'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)
       };
       const probConfig = configs['prob'];

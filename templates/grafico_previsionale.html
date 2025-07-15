@@ -7,7 +7,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
   <style>
-    /* ... CSS (invariato) ... */
     html, body {
         height: 100%;
         margin: 0;
@@ -283,7 +282,6 @@
     const chartRefs = {};
     let datiPerReport = [];
 
-    // --- Funzioni per report, scrollbar e zoom (INVARIATE) ---
     function triggerDownload(blob, filename) {
         const link = document.createElement('a');
         if (link.download !== undefined) {
@@ -348,7 +346,6 @@
     }
 
     function setupCustomScrollbar(chart, scrollbarElement, allData) {
-        // Questa funzione rimane invariata
         const handle = scrollbarElement.querySelector('.scrollbar-handle');
         const track = scrollbarElement.querySelector('.scrollbar-track');
         let isDragging = false;
@@ -430,9 +427,8 @@
       });
     }
 
-    // --- NUOVA LOGICA DI POLLING PER IL REFRESH ---
     function setupUpdatePolling(tratto, initialTimestamp) {
-        const POLLING_INTERVAL_MS = 60000; // Controlla ogni 60 secondi
+        const POLLING_INTERVAL_MS = 60000;
         const countdownElement = document.getElementById('countdown-refresh');
 
         if (!tratto || !initialTimestamp) {
@@ -443,7 +439,6 @@
         console.log(`Polling iniziato. Timestamp iniziale della pagina: ${initialTimestamp}`);
 
         const check = () => {
-            // Chiama il nuovo endpoint API creato in app.py
             fetch(`/api/check_update?tratto=${encodeURIComponent(tratto)}`)
                 .then(response => {
                     if (!response.ok) throw new Error('Risposta del server non valida durante il polling.');
@@ -452,11 +447,8 @@
                 .then(data => {
                     if (data.latest_update) {
                         const latestTimestamp = data.latest_update;
-
-                        // Confronta il timestamp del DB con quello memorizzato al caricamento della pagina
                         if (new Date(latestTimestamp) > new Date(initialTimestamp)) {
                             countdownElement.textContent = "Nuovi dati disponibili! Ricarico la pagina...";
-                            // Attendi 2 secondi per permettere all'utente di leggere il messaggio, poi ricarica
                             setTimeout(() => {
                                 window.location.reload();
                             }, 2000);
@@ -472,11 +464,7 @@
                     countdownElement.textContent = "Errore di connessione durante la verifica di nuovi dati.";
                 });
         };
-
-        // Avvia il timer che eseguirà la funzione 'check' a intervalli regolari
         setInterval(check, POLLING_INTERVAL_MS);
-
-        // Imposta il messaggio iniziale
         countdownElement.textContent = "Verifica automatica di nuovi dati attiva.";
     }
 
@@ -485,7 +473,6 @@
       const urlParams = new URLSearchParams(window.location.search);
       const tratto = urlParams.get('tratto');
 
-      // --- Blocco Titolo e Dati Aggiornati ---
       let currentRoad = '';
       if (tratto) {
           currentRoad = tratto.split(' ')[0];
@@ -496,21 +483,16 @@
       const ultimoDownloadDate = new Date(ultimoDownloadVal);
       document.getElementById('ultimo-download').textContent = `Dati aggiornati alle: ${ultimoDownloadDate.toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'medium' })}`;
 
-      // --- Inizializzazione Dati e Grafici ---
       const dati = JSON.parse('{{ dati | tojson | safe }}');
       datiPerReport = dati;
       creaGrafici(dati);
 
-      // --- Associazione eventi ai pulsanti ---
       document.getElementById('reset-zoom-globale').addEventListener('click', resetAllZooms);
       document.getElementById('download-report-globale').addEventListener('click', downloadGlobalCSV);
 
-      // --- AVVIO DELLA NUOVA LOGICA DI POLLING ---
-      // Convertiamo la data Jinja in formato ISO per un confronto affidabile e la passiamo alla nostra nuova funzione
       const initialTimestampISO = ultimoDownloadDate.toISOString();
       setupUpdatePolling(tratto, initialTimestampISO);
 
-      // --- Logica per la ricerca (invariata) ---
       const searchInput = document.getElementById('search-tratto');
       const suggestionsContainer = document.getElementById('suggestions-container');
       const searchButton = document.getElementById('search-button');
@@ -563,7 +545,30 @@
     });
 
     function creaGrafici(dati) {
+      if (!dati || dati.length === 0) {
+          console.log("Nessun dato da visualizzare.");
+          return;
+      }
+
       const labels = dati.map(d => new Date(d.time).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', timeZone: 'UTC' }));
+
+      // --- MODIFICA INIZIO: Calcolo dinamico dei limiti ---
+      const temps = dati.map(d => d.temperature).filter(t => t !== null && t !== undefined);
+      const winds = dati.map(d => d.windspeed).filter(w => w !== null && w !== undefined);
+
+      let yMinTemp = -10, yMaxTemp = 40;
+      if (temps.length > 0) {
+          yMinTemp = Math.floor(Math.min(...temps) - 5);
+          yMaxTemp = Math.ceil(Math.max(...temps) + 5);
+      }
+
+      const yMinWind = 0;
+      let yMaxWind = 10;
+      if (winds.length > 0) {
+          yMaxWind = Math.ceil(Math.max(...winds) + 1);
+      }
+      // --- MODIFICA FINE ---
+
       const config = (label, data, color, yMin, yMax) => ({
         type: 'line',
         data: {
@@ -586,7 +591,7 @@
           },
           scales: {
             x: {
-                ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 45, minRotation: 0, color: '#aaa' },
+                ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 45, minRotation: 0, color: '#aaa' },
                 grid: { color: '#444' }
             },
             y: {
@@ -600,9 +605,9 @@
       });
       const ids = ['temp', 'prec', 'wind', 'prob'];
       const configs = {
-          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', -15, 45),
+          'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', yMinTemp, yMaxTemp),
           'prec': config('Precipitazione (mm)', dati.map(d => d.precipitation), '#007bff', 0, 50),
-          'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', 0, 10),
+          'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', yMinWind, yMaxWind),
           'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)
       };
       const probConfig = configs['prob'];
