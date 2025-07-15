@@ -11,11 +11,23 @@ body {
   color: #333;
 }
 .page-wrapper {
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100vh;
     padding: 20px;
     box-sizing: border-box;
+}
+.logo-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1001; /* Assicura che sia sopra gli altri elementi */
+}
+
+.logo-container img {
+    height: 60px; /* Puoi regolare l'altezza secondo necessità */
+    width: auto;
 }
 h1 {
   margin-top: 0;

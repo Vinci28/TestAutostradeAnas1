@@ -11,6 +11,7 @@ body {
   color: #333;
 }
 .page-wrapper {
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -23,6 +24,17 @@ h1 {
   /* Cambio Colore */
   color: #00338D;
   flex-shrink: 0;
+}
+.logo-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1001; /* Assicura che sia sopra gli altri elementi */
+}
+
+.logo-container img {
+    height: 60px; /* Puoi regolare l'altezza secondo necessità */
+    width: auto;
 }
 .aggiornamento-info {
     margin-bottom: 10px;
