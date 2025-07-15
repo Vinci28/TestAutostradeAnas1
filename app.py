@@ -150,7 +150,11 @@ def mappa_previsionale():
 
             logging.info(
                 f"Caricati dati per {len(risultati)} tratti e {len(orari_set)} timestamps per la strada {strada}")
-            return jsonify({"times": sorted(list(orari_set)), "data": risultati})
+            return jsonify({
+                "times": sorted(list(orari_set)),
+                "data": risultati,
+                "last_update_timestamp": max_ts.isoformat() if max_ts else None
+            })
 
     except Exception as e:
         logging.error(f"Errore in mappa_previsionale: {e}", exc_info=True)
@@ -379,6 +383,48 @@ def check_update():
         if conn:
             conn.close()
         if conn: conn.close()
+
+
+@app.route('/api/check_update_mappa')
+def check_update_mappa():
+    """
+    Endpoint leggero per il polling. Controlla il timestamp dell'ultimo
+    set di dati scaricato per una data strada.
+    """
+    strada = request.args.get('strada')
+    if not strada:
+        return jsonify({"errore": "Parametro 'strada' mancante"}), 400
+
+    # Usiamo 'previsionale' perché stiamo controllando la tabella delle previsioni
+    tabella = get_table_name(strada, 'previsionale')
+    if not tabella:
+        return jsonify({"errore": f"Configurazione non trovata per la strada: {strada}"}), 404
+
+    conn = None
+    try:
+        conn = get_connection()
+        if not conn: return jsonify({"errore": "Errore di connessione al DB"}), 500
+
+        with conn.cursor() as cursor:
+            # Query super leggera per ottenere solo il timestamp dell'ultimo inserimento
+            query = f"SELECT MAX(downloaded_at) FROM {tabella}"
+            cursor.execute(query)
+            latest_update = cursor.fetchone()[0]
+
+            if latest_update:
+                # Restituiamo il timestamp in formato ISO 8601, standard per JS
+                return jsonify({"latest_update": latest_update.isoformat()})
+            else:
+                # Nessun dato trovato per questa strada
+                return jsonify({"latest_update": None})
+
+    except Exception as e:
+        logging.error(f"Errore in /api/check_update_mappa: {e}", exc_info=True)
+        return jsonify({"errore": "Errore interno durante il controllo degli aggiornamenti"}), 500
+    finally:
+        if conn:
+            conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -34,11 +34,9 @@
     #legend .title { font-weight:bold; margin-bottom:5px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 13px;}
     #legend .step { display:flex; align-items:center; margin-bottom:3px; }
     #legend .color-box { width:18px; height:12px; margin-right:8px; border:1px solid #ccc; flex-shrink: 0; border-radius: 2px; }
-
     #dayLabels-wrapper { display: flex; align-items: center; width: 100%; }
     .timeline-spacer { width: 35px; margin-right: 15px; flex-shrink: 0; }
     #dayLabels { display:flex; flex-grow: 1; justify-content: flex-start; margin-bottom:8px; }
-
     #dayLabels div { text-align:center; cursor:pointer; padding:2px 0; font-size:13px; font-weight:600; color:#eee; border-right:1px solid rgba(255,255,255,0.2); }
     #dayLabels div:last-child { border-right: none; }
     #dayLabels div.active { color: #FFC100; }
@@ -47,44 +45,27 @@
     #playPauseBtn:hover { background: rgba(255,255,255,0.2); }
     #timeSlider { -webkit-appearance:none; flex-grow: 1; height:6px; background:rgba(255,255,255,0.3); border-radius:3px; }
     #timeSlider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:#FFC100; border-radius:50%; cursor:pointer; border: 2px solid #fff; }
-    #currentTime {
-        position: absolute;
-        bottom: 95px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1002;
-        background: rgba(0, 0, 0, 0.7);
-        color: #FFC100;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 14px;
-        font-weight: bold;
-    }
+    #currentTime { position: absolute; bottom: 95px; left: 50%; transform: translateX(-50%); z-index: 1002; background: rgba(0, 0, 0, 0.7); color: #FFC100; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; }
     #loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:12px 20px; border-radius:6px; box-shadow:0 0 8px rgba(0,0,0,0.3); font-size:16px; display:none; z-index:2002; }
     #btnGrafico { display:none; margin-top: 15px; }
     #btnGrafico button { background:#28a745; color:white; border:none; padding: 10px; font-weight: bold; cursor: pointer; width: 100%; border-radius: 4px; transition: background-color 0.2s; }
     #btnGrafico button:hover { background: #218838; }
+
+    /* --- INIZIO SEZIONE CORRETTA --- */
+    /* Aggiunge un margine sopra il pulsante di allarme per distanziarlo */
+    .leaflet-control-alerts {
+        margin-top: 10px !important;
+    }
+    /* Definisce solo l'icona personalizzata per il pulsante */
     .leaflet-control-alerts a {
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23dc3545"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>');
-        background-size: 20px 20px;
-        background-repeat: no-repeat;
+        background-size: 18px; /* Dimensione dell'icona */
         background-position: center;
-        width: 30px;
-        height: 30px;
+        background-repeat: no-repeat;
     }
-    .alert-badge {
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        background-color: #dc3545;
-        color: white;
-        border-radius: 50%;
-        padding: 1px 5px;
-        font-size: 11px;
-        font-weight: bold;
-        border: 2px solid white;
-        display: none;
-    }
+    /* --- FINE SEZIONE CORRETTA --- */
+
+    .alert-badge { position: absolute; top: -5px; right: -5px; background-color: #dc3545; color: white; border-radius: 50%; padding: 1px 5px; font-size: 11px; font-weight: bold; border: 2px solid white; display: none; }
 </style>
 </head>
 <body>
@@ -120,6 +101,7 @@
 </div>
 <div id="legend"></div>
 <div id="timeline-container">
+    <div id="update-status" style="position: absolute; top: -20px; left: 20px; font-size: 11px; color: #000000;"></div>
     <div id="dayLabels-wrapper">
         <div class="timeline-spacer"></div>
         <div id="dayLabels"></div>
@@ -172,8 +154,10 @@
 
     const AlertControl = L.Control.extend({
         onAdd: function(map) {
-            const container = L.DomUtil.create('div', 'leaflet-control-alerts leaflet-bar');
-            container.style.marginTop = '10px';
+            // --- ECCO LA CORREZIONE CHIAVE ---
+            // Aggiungo la classe 'leaflet-control' per ereditare tutti gli stili base di Leaflet.
+            const container = L.DomUtil.create('div', 'leaflet-control-alerts leaflet-control leaflet-bar');
+
             const link = L.DomUtil.create('a', '', container);
             link.id = 'alert-link';
             link.href = '#';
@@ -193,7 +177,6 @@
     const normalizeKey = (str) => str ? str.replace(/[\s._()-]/g, "").toLowerCase() : '';
     const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); }; };
 
-    // --- INIZIO LOGICA RICERCA INTELLIGENTE ---
     function parseKm(kmStr) {
         if (!kmStr || typeof kmStr !== 'string') return null;
         const parts = kmStr.split('+');
@@ -208,14 +191,11 @@
         const kmRegex = /Km\s(\d+\+\d{3})/g;
         const matches = [...segmentName.matchAll(kmRegex)];
         if (matches.length < 2) return null;
-
         const start = parseKm(matches[0][1]);
         const end = parseKm(matches[1][1]);
-
         if (start === null || end === null) return null;
         return { start: Math.min(start, end), end: Math.max(start, end) };
     }
-    // --- FINE LOGICA RICERCA INTELLIGENTE ---
 
     function renderLegend() {
         const lg = document.getElementById('legend');
@@ -263,10 +243,7 @@
             }).addTo(map).bindTooltip(tratto.nome, { direction: 'top', sticky: true }).on('click', (e) => handleSelection(e.target));
             polylines[normKey] = poly;
         });
-
-        // La lista viene ora popolata da updateSearchList
         updateSearchList();
-
         if (BOUNDS[currentStrada] && !kmSearch.value) {
             map.fitBounds(BOUNDS[currentStrada]);
         }
@@ -279,14 +256,9 @@
             segmentListContainer.style.display = 'none';
             return;
         }
-
         const stradaLower = currentStrada.toLowerCase();
         const segmentsForStrada = allSegments.filter(t => t.nome.toLowerCase().includes(stradaLower));
-
-        // 1. Ricerca testuale standard
         const textResults = segmentsForStrada.filter(t => t.nome.toLowerCase().includes(filterText));
-
-        // 2. Ricerca intelligente per chilometro
         let intelligentResults = [];
         const searchKmRegex = /(?:km\s*)?(\d+\+\d{1,3})/i;
         const searchMatch = filterText.match(searchKmRegex);
@@ -299,13 +271,10 @@
                 });
             }
         }
-
-        // 3. Combina i risultati senza duplicati
         const combined = new Map();
         textResults.forEach(t => combined.set(t.nome, t));
         intelligentResults.forEach(t => combined.set(t.nome, t));
         const filteredForList = Array.from(combined.values());
-
         if (filteredForList.length > 0) {
             filteredForList.forEach(tratto => {
                 const div = document.createElement('div');
@@ -331,11 +300,9 @@
     function handleSelection(poly) {
         highlightGroup.clearLayers();
         highlightFill = null;
-
         if (selectedPoly) {
             selectedPoly.setStyle({ opacity: 1 });
         }
-
         if (selectedPoly === poly) {
             selectedPoly = null;
             kmSearch.value = '';
@@ -343,21 +310,15 @@
             updateMapColors();
             return;
         }
-
         selectedPoly = poly;
         poly.setStyle({ opacity: 0 });
-
         const latlngs = poly.getLatLngs();
         const currentVal = getCurrentValue(poly);
         const initialColor = getColorForValue(currentVal);
-
         const border = L.polyline(latlngs, { color: COLORS.SELECTED_BLUE, weight: COLORS.SELECTED_WEIGHT, opacity: 1, interactive: false });
         highlightFill = L.polyline(latlngs, { color: initialColor, weight: COLORS.SELECTED_WEIGHT / 2, opacity: 1, interactive: false });
-
         highlightGroup.addLayer(border).addLayer(highlightFill);
-
         highlightGroup.bindTooltip(poly.getTooltip().getContent(), { direction: 'top', sticky: true });
-
         kmSearch.value = poly.options.nome;
         btnGrafico.style.display = 'block';
     }
@@ -368,6 +329,56 @@
         window.open(`/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalita=previsionale`, '_blank');
     }
 
+    // --- NUOVA LOGICA DI POLLING ---
+    let pollingInterval = null;
+    let currentPageTimestamp = null;
+
+    function setupPolling(strada, initialTimestamp) {
+        const POLLING_INTERVAL_MS = 60000; // 1 minuto
+        const statusElement = document.getElementById('update-status');
+
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+
+        if (!strada || !initialTimestamp) {
+            statusElement.textContent = "Informazioni per l'aggiornamento automatico mancanti.";
+            return;
+        }
+
+        currentPageTimestamp = initialTimestamp;
+        console.log(`Polling attivato per ${strada}. Timestamp iniziale: ${currentPageTimestamp}`);
+        statusElement.textContent = "Controllo aggiornamenti automatico attivo.";
+
+        const check = () => {
+            fetch(`/api/check_update_mappa?strada=${encodeURIComponent(strada)}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Risposta del server non valida.');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.latest_update) {
+                        const latestTimestamp = data.latest_update;
+                        if (new Date(latestTimestamp) > new Date(currentPageTimestamp)) {
+                            statusElement.textContent = "Nuovi dati disponibili! Aggiornamento in corso...";
+                            loadData();
+                        } else {
+                            statusElement.textContent = "I dati visualizzati sono i più recenti.";
+                        }
+                    } else {
+                        statusElement.textContent = "Nessun dato previsionale trovato per questa strada.";
+                    }
+                })
+                .catch(err => {
+                    console.error("Errore durante il polling degli aggiornamenti:", err);
+                    statusElement.textContent = "Errore di connessione durante la verifica di nuovi dati.";
+                });
+        };
+
+        pollingInterval = setInterval(check, POLLING_INTERVAL_MS);
+    }
+
+    // --- FUNZIONE loadData MODIFICATA ---
     async function loadData() {
         pausePlayback();
         loadingEl.style.display = 'block';
@@ -377,6 +388,15 @@
             if (!res.ok) throw new Error(`Errore API: ${res.status}`);
             const json = await res.json();
             if (json.errore) throw new Error(json.errore);
+
+            const lastUpdate = json.last_update_timestamp;
+
+            if (lastUpdate && lastUpdate === currentPageTimestamp) {
+                console.log("Dati già aggiornati.");
+                document.getElementById('update-status').textContent = "I dati visualizzati sono i più recenti.";
+                loadingEl.style.display = 'none';
+                return;
+            }
 
             const allTimes = json.times || [];
             const now = new Date();
@@ -388,20 +408,24 @@
             });
 
             apiData = json.data || {};
-
             const startIndex = 0;
-
             renderTimeline(startIndex);
             updateMap(startIndex, true);
+
+            if (lastUpdate) {
+                setupPolling(currentStrada, lastUpdate);
+            }
 
         } catch (error) {
             console.error(`Errore caricamento dati:`, error);
             times = []; apiData = {};
             renderTimeline(0);
+            document.getElementById('update-status').textContent = "Errore nel caricamento dei dati.";
         } finally {
             loadingEl.style.display = 'none';
         }
     }
+
 
     function renderTimeline(startIndex = 0) {
         const dayLabelsContainer = document.getElementById('dayLabels');
@@ -418,21 +442,17 @@
         document.getElementById('dayLabels-wrapper').style.display = 'flex';
         playPauseBtn.disabled = false;
         timeSlider.style.display = 'block';
-
         const dayCounts = {};
         times.forEach(t => {
             const day = t.split('T')[0];
             dayCounts[day] = (dayCounts[day] || 0) + 1;
         });
-
         const days = Object.keys(dayCounts).sort();
-
         days.forEach(d => {
             const dt = new Date(d + 'T12:00:00');
             const div = document.createElement('div');
             div.textContent = dt.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
             div.style.flexGrow = dayCounts[d];
-
             div.onclick = () => {
                 pausePlayback();
                 const idx = times.findIndex(x => x.startsWith(d));
@@ -440,7 +460,6 @@
             };
             dayLabelsContainer.appendChild(div);
         });
-
         timeSlider.min = 0;
         timeSlider.max = times.length > 0 ? times.length - 1 : 0;
         timeSlider.value = startIndex;
@@ -461,15 +480,12 @@
                 updatePolylineColor(poly, val);
             }
         });
-
         if (selectedPoly) {
             const val = getCurrentValue(selectedPoly);
             const newColor = getColorForValue(val);
-
             if (highlightFill) {
                 highlightFill.setStyle({ color: newColor });
             }
-
             const tooltipText = buildTooltipText(selectedPoly, val);
             highlightGroup.unbindTooltip();
             highlightGroup.bindTooltip(tooltipText, { direction: 'top', sticky: true });
@@ -486,7 +502,6 @@
     function updatePolylineColor(poly, val) {
         const tooltipText = buildTooltipText(poly, val);
         poly.setTooltipContent(tooltipText);
-
         const color = val !== null ? getColorForValue(val) : COLORS.DEFAULT;
         poly.setStyle({ color: color, weight: COLORS.DEFAULT_WEIGHT, opacity: 1 });
     }
@@ -527,6 +542,8 @@
 
     async function handleStradaChange() {
         pausePlayback();
+        if (pollingInterval) clearInterval(pollingInterval); // Stop polling on road change
+        currentPageTimestamp = null; // Reset timestamp
         currentStrada = stradaSelect.value;
         kmSearch.value = '';
         if (selectedPoly) {
@@ -550,7 +567,6 @@
 
     kmSearch.addEventListener('input', debounce(updateSearchList, 300));
     kmSearch.addEventListener('focus', updateSearchList);
-
     document.addEventListener('click', (e) => {
         if (!document.getElementById('search-container').contains(e.target)) {
             segmentListContainer.style.display = 'none';
