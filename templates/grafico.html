@@ -301,7 +301,9 @@
         const header = 'Time,Temperatura_C,Precipitazione_mm,Vento_ms,Prob_Precipitazione_Percent';
         let csvRows = [header];
         datiPerReport.forEach(row => {
-            const time = new Date(row.time).toISOString().slice(0, 19).replace('T', ' ');
+            const date = new Date(row.time);
+            date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
+            const time = date.toISOString().slice(0, 19).replace('T', ' ');
             const temp = row.temperature;
             const prec = row.precipitation;
             const wind = row.windspeed;
@@ -330,7 +332,9 @@
         if (!config) return;
         let csvRows = [config.header];
         datiPerReport.forEach(row => {
-            const time = new Date(row[config.columns[0]]).toISOString().slice(0, 19).replace('T', ' ');
+            const date = new Date(row[config.columns[0]]);
+            date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
+            const time = date.toISOString().slice(0, 19).replace('T', ' ');
             const value = row[config.columns[1]];
             csvRows.push(`${time},${value}`);
         });
@@ -562,14 +566,13 @@
           return;
       }
 
-      // --- MODIFICA INIZIO: Formattazione etichette asse X ---
       const labels = dati.map(d => {
           const date = new Date(d.time);
+          date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
           const dayMonth = date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
           const hour = date.toLocaleTimeString('it-IT', { hour: '2-digit', timeZone: 'UTC', hour12: false });
           return `${dayMonth} ${hour}`;
       });
-      // --- MODIFICA FINE ---
 
       const temps = dati.map(d => d.temperature).filter(t => t !== null && t !== undefined);
       const winds = dati.map(d => d.windspeed).filter(w => w !== null && w !== undefined);
