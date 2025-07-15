@@ -359,22 +359,22 @@ function creaGrafici(dati) {
         },
         legend: {
             labels: {
-                color: '#e0e0e0'
+                color: '#6c757d'
             }
         }
       },
       scales: {
-        x: {
-            ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 45, minRotation: 0, color: '#aaa' },
-            grid: { color: '#444' }
-        },
-        y: {
-            min: yMin,
-            max: yMax,
-            grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2, color: '#444' },
-            ticks: { color: '#aaa' }
+          x: {
+              ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 45, minRotation: 0, color: '#555' },
+              grid: { color: '#e9ecef'}
+          },
+          y: {
+              min: yMin,
+              max: yMax,
+              grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2, color: '#e9ecef' },
+              ticks: { color: '#555' }
+          }
         }
-      }
     }
   });
   const ids = ['temp', 'prec', 'wind', 'prob'];

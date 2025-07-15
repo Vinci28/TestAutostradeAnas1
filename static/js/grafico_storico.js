@@ -382,19 +382,19 @@ function creaGrafici(dati) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { labels: { color: '#e0e0e0' } },
+          legend: { labels: { color: '#6c757d' } },
           zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' } }
         },
         scales: {
           x: {
-              ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 45, minRotation: 0, color: '#aaa' },
-              grid: { color: '#444'}
+              ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 45, minRotation: 0, color: '#555' },
+              grid: { color: '#e9ecef'}
           },
           y: {
               min: yMin,
               max: yMax,
-              grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2, color: '#444' },
-              ticks: { color: '#aaa' }
+              grid: { zeroLineColor: 'rgba(255, 99, 132, 0.8)', zeroLineWidth: 2, color: '#e9ecef' },
+              ticks: { color: '#555' }
           }
         }
       }

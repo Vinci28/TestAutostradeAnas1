@@ -2,11 +2,13 @@ html, body {
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: #121212;
+    /* Cambio Colore */
+    background: #f4f7f9;
 }
 body {
   font-family: Arial, sans-serif;
-  color: #e0e0e0;
+  /* Cambio Colore */
+  color: #333;
 }
 .page-wrapper {
     display: flex;
@@ -18,7 +20,8 @@ body {
 h1 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #f0f0f0;
+  /* Cambio Colore */
+  color: #00338D;
   flex-shrink: 0;
 }
 .search-container {
@@ -28,31 +31,36 @@ h1 {
 }
 #reset-zoom-globale, #search-button, .filtri-container button {
   padding: 8px 15px;
-  background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  /* Cambio Colore */
+  background-color: #00338D;
 }
 #reset-zoom-globale:hover, #search-button:hover, .filtri-container button:hover {
-  background-color: #0056b3;
+  /* Cambio Colore */
+  background-color: #002266;
 }
 #download-report-globale {
+    /* Cambio Colore */
     background-color: #ffc107;
     color: #212529;
     font-weight: bold;
 }
 #download-report-globale:hover {
+    /* Cambio Colore */
     background-color: #e0a800;
 }
 #search-tratto {
   padding: 8px;
-  border: 1px solid #333;
   border-radius: 4px;
-  background-color: #252525;
-  color: #e0e0e0;
   width: 250px;
+  /* Cambio Colore */
+  border: 1px solid #ced4da;
+  background-color: #fff;
+  color: #333;
 }
 .suggestions-container {
     display: none;
@@ -60,43 +68,50 @@ h1 {
     top: 100%;
     left: 0;
     right: 0;
-    background: #252525;
-    border: 1px solid #333;
-    border-top: none;
-    border-radius: 0 0 4px 4px;
     z-index: 1000;
     max-height: 200px;
     overflow-y: auto;
+    /* Cambio Colore */
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
 }
 .suggestion-item {
     padding: 10px;
     cursor: pointer;
-    color: #e0e0e0;
+    /* Cambio Colore */
+    color: #333;
 }
 .suggestion-item:hover {
-    background-color: #007bff;
+    /* Cambio Colore */
+    background-color: #00338D;
     color: white;
 }
 .filtri-container {
-  background: #1e1e1e;
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
-  border: 1px solid #333;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 15px;
   flex-shrink: 0;
+  /* Cambio Colore */
+  background: #fff;
+  border: 1px solid #dee2e6;
 }
-.filtri-container label { font-weight: bold; }
+.filtri-container label {
+    font-weight: bold;
+}
 .filtri-container input {
   padding: 8px;
-  border: 1px solid #333;
   border-radius: 4px;
-  background-color: #252525;
-  color: #e0e0e0;
+  /* Cambio Colore */
+  border: 1px solid #ced4da;
+  background-color: #fff;
+  color: #333;
 }
 .filtri-gruppo-sx {
   display: flex;
@@ -113,13 +128,15 @@ h1 {
   min-height: 0;
 }
 .grafico-card {
-  background: #1e1e1e;
-  border-radius: 10px;
   padding: 20px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  border: 1px solid #333;
   min-height: 0;
+  /* Cambio Colore */
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 .grafico-header {
   display: flex;
@@ -130,7 +147,8 @@ h1 {
 .grafico-title {
   font-weight: bold;
   font-size: 16px;
-  color: #f0f0f0;
+  /* Cambio Colore */
+  color: #00338D;
 }
 .button-group {
     display: flex;
@@ -145,15 +163,19 @@ h1 {
   font-size: 13px;
 }
 .reset-btn {
-    background-color: #007bff;
+    /* Cambio Colore */
+    background-color: #00338D;
 }
 .report-btn {
+    /* Cambio Colore */
     background-color: #28a745;
 }
 .reset-btn:hover {
-    background-color: #0056b3;
+    /* Cambio Colore */
+    background-color: #002266;
 }
 .report-btn:hover {
+    /* Cambio Colore */
     background-color: #218838;
 }
 .chart-container {
@@ -172,22 +194,24 @@ h1 {
     position: absolute;
     width: 100%;
     height: 4px;
-    background-color: #444;
     top: 50%;
     transform: translateY(-50%);
     border-radius: 2px;
+    /* Cambio Colore */
+    background-color: #e9ecef;
 }
 .scrollbar-handle {
     position: absolute;
     width: 16px;
     height: 16px;
-    background-color: #007bff;
-    border: 2px solid #fff;
     border-radius: 50%;
     top: 50%;
     transform: translateY(-50%);
     cursor: grab;
     user-select: none;
+    /* Cambio Colore */
+    background-color: #00338D;
+    border: 2px solid #fff;
 }
 @media (max-width: 1000px) {
   .grafici-container { grid-template-columns: 1fr; }
