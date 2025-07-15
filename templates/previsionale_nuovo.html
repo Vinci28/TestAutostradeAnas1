@@ -343,7 +343,7 @@
     let currentPageTimestamp = null;
 
     function setupPolling(strada, initialTimestamp) {
-        const POLLING_INTERVAL_MS = 60000;
+        const POLLING_INTERVAL_MS = 30000; //30 secondi
         const statusElement = document.getElementById('update-status');
         if (pollingInterval) { clearInterval(pollingInterval); }
         if (!strada || !initialTimestamp) {
