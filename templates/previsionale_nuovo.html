@@ -34,24 +34,31 @@
     #legend .title { font-weight:bold; margin-bottom:5px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 13px;}
     #legend .step { display:flex; align-items:center; margin-bottom:3px; }
     #legend .color-box { width:18px; height:12px; margin-right:8px; border:1px solid #ccc; flex-shrink: 0; border-radius: 2px; }
-    #dayLabels { display:flex; width:100%; justify-content:space-around; margin-bottom:8px; }
-    #dayLabels div { flex:1; text-align:center; cursor:pointer; padding:2px 0; font-size:13px; font-weight:600; color:#eee; border-right:1px solid rgba(255,255,255,0.2); }
+
+    #dayLabels-wrapper { display: flex; align-items: center; width: 100%; }
+    .timeline-spacer { width: 35px; margin-right: 15px; flex-shrink: 0; }
+    #dayLabels { display:flex; flex-grow: 1; justify-content: flex-start; margin-bottom:8px; }
+
+    #dayLabels div { text-align:center; cursor:pointer; padding:2px 0; font-size:13px; font-weight:600; color:#eee; border-right:1px solid rgba(255,255,255,0.2); }
     #dayLabels div:last-child { border-right: none; }
     #dayLabels div.active { color: #FFC100; }
     #slider-wrapper { display: flex; align-items: center; width: 100%; }
     #playPauseBtn { background: transparent; border: 2px solid #fff; color: #fff; border-radius: 50%; width: 35px; height: 35px; font-size: 16px; cursor: pointer; margin-right: 15px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
     #playPauseBtn:hover { background: rgba(255,255,255,0.2); }
-    /* --- MODIFICA ESEGUITA --- */
     #timeSlider { -webkit-appearance:none; flex-grow: 1; height:6px; background:rgba(255,255,255,0.3); border-radius:3px; }
     #timeSlider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:#FFC100; border-radius:50%; cursor:pointer; border: 2px solid #fff; }
     #currentTime {
-        color: #FFC100; /* Colore giallo per alta visibilità */
-        font-size: 15px; /* Testo più grande e leggibile */
-        font-weight: 600;
-        margin-left: 20px; /* Spazio a sinistra dello slider */
-        min-width: 125px; /* Larghezza minima per stabilità layout */
-        text-align: center;
-        flex-shrink: 0; /* Impedisce che si rimpicciolisca */
+        position: absolute;
+        bottom: 95px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1002;
+        background: rgba(0, 0, 0, 0.7);
+        color: #FFC100;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
     }
     #loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:12px 20px; border-radius:6px; box-shadow:0 0 8px rgba(0,0,0,0.3); font-size:16px; display:none; z-index:2002; }
     #btnGrafico { display:none; margin-top: 15px; }
@@ -113,13 +120,16 @@
 </div>
 <div id="legend"></div>
 <div id="timeline-container">
-    <div id="dayLabels"></div>
+    <div id="dayLabels-wrapper">
+        <div class="timeline-spacer"></div>
+        <div id="dayLabels"></div>
+    </div>
     <div id="slider-wrapper">
         <button id="playPauseBtn">▶</button>
         <input id="timeSlider" type="range" min="0" max="0" value="0">
-        <div id="currentTime">--</div>
     </div>
 </div>
+<div id="currentTime">--</div>
 <footer id="main-footer">
     &copy; 2024 ANAS S.p.A. | Società del Polo Infrastrutture del Gruppo FS Italiane - P.IVA 01122701000
 </footer>
@@ -133,7 +143,7 @@
         precipitation: { unit: 'mm', steps: [ { value: 0.2, color: 'rgb(173, 216, 230)', label: 'Assente' }, { value: 2.0, color: 'rgb(0, 0, 255)', label: 'Debole' }, { value: 10.0, color: 'rgb(0, 128, 0)', label: 'Moderato' }, { value: 25.0, color: 'rgb(255, 255, 0)', label: 'Intenso' }, { value: 50.0, color: 'rgb(255, 165, 0)', label: 'Forte' }, { value: Infinity, color: 'rgb(255, 0, 0)', label: 'Molto Forte' } ], labels: ['< 0.2', '0.2-2.0', '2.0-10.0', '10.0-25.0', '25.0-50.0', '> 50.0'] }
     };
     const BOUNDS = { A90:[[41.8,12.3],[42.0,12.7]], SS51:[[45.8,12.2],[46.7,12.4]], SS675:[[42.3,11.9],[42.7,12.4]] };
-    const COLORS = { DEFAULT: '#808080', SELECTED_YELLOW: '#FFD700', SELECTED_BLUE: '#00338D', SELECTED_WEIGHT: 8, DEFAULT_WEIGHT: 5 };
+    const COLORS = { DEFAULT: '#808080', SELECTED_BLUE: '#00338D', SELECTED_WEIGHT: 8, DEFAULT_WEIGHT: 5 };
 
     const renderer = L.canvas({ padding: 0.5 });
     const map = L.map('map', { preferCanvas: true, renderer, zoomControl: false }).setView([42.5, 12.5], 7);
@@ -149,6 +159,7 @@
     let currentVar = 'temperature', currentStrada = 'A90';
     let isPlaying = false, playInterval = null;
     let highlightGroup = L.layerGroup().addTo(map);
+    let highlightFill = null;
 
     const loadingEl = document.getElementById('loading');
     const stradaSelect = document.getElementById('stradaSelect');
@@ -159,7 +170,6 @@
     const timeSlider = document.getElementById('timeSlider');
     const btnGrafico = document.getElementById('btnGrafico');
 
-    // --- NUOVO: Controllo Allarmi ---
     const AlertControl = L.Control.extend({
         onAdd: function(map) {
             const container = L.DomUtil.create('div', 'leaflet-control-alerts leaflet-bar');
@@ -273,6 +283,8 @@
 
     function handleSelection(poly) {
         highlightGroup.clearLayers();
+        highlightFill = null;
+
         if (selectedPoly) {
             selectedPoly.setStyle({ opacity: 1 });
         }
@@ -281,44 +293,56 @@
             selectedPoly = null;
             kmSearch.value = '';
             btnGrafico.style.display = 'none';
-        } else {
-            selectedPoly = poly;
-            const latlngs = poly.getLatLngs();
-            const border = L.polyline(latlngs, { color: COLORS.SELECTED_BLUE, weight: COLORS.SELECTED_WEIGHT, opacity: 1 });
-            const fill = L.polyline(latlngs, { color: COLORS.SELECTED_YELLOW, weight: COLORS.SELECTED_WEIGHT / 2, opacity: 1 });
-            highlightGroup.addLayer(border).addLayer(fill);
-            poly.setStyle({ opacity: 0 });
-            kmSearch.value = poly.options.nome;
-            btnGrafico.style.display = 'block';
+            updateMapColors();
+            return;
         }
+
+        selectedPoly = poly;
+        poly.setStyle({ opacity: 0 });
+
+        const latlngs = poly.getLatLngs();
+        const currentVal = getCurrentValue(poly);
+        const initialColor = getColorForValue(currentVal);
+
+        const border = L.polyline(latlngs, { color: COLORS.SELECTED_BLUE, weight: COLORS.SELECTED_WEIGHT, opacity: 1, interactive: false });
+        highlightFill = L.polyline(latlngs, { color: initialColor, weight: COLORS.SELECTED_WEIGHT / 2, opacity: 1, interactive: false });
+
+        highlightGroup.addLayer(border).addLayer(highlightFill);
+
+        highlightGroup.bindTooltip(poly.getTooltip().getContent(), { direction: 'top', sticky: true });
+
+        kmSearch.value = poly.options.nome;
+        btnGrafico.style.display = 'block';
     }
 
     function visualizzaGraficoPrevisionale() {
         if (!selectedPoly) { return alert("Seleziona prima un tratto dalla mappa."); }
         const nomeTratto = selectedPoly.options.nome;
-        // Modificato per puntare alla rotta /grafico con la modalità corretta
         window.open(`/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalita=previsionale`, '_blank');
     }
 
     async function loadData() {
         pausePlayback();
         loadingEl.style.display = 'block';
-        // Aggiornato per usare il nuovo endpoint
         const url = `/api/mappa/previsionale?strada=${encodeURIComponent(currentStrada)}`;
         try {
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Errore API: ${res.status}`);
             const json = await res.json();
             if (json.errore) throw new Error(json.errore);
-            times = json.times || [];
+
+            const allTimes = json.times || [];
+            const now = new Date();
+            const limitTime = new Date(now.getTime() + 73 * 60 * 60 * 1000);
+
+            times = allTimes.filter(t => {
+                const timestampDate = new Date(t);
+                return timestampDate <= limitTime;
+            });
+
             apiData = json.data || {};
 
-            let startIndex = 0;
-            if (times.length > 0) {
-                const now = new Date();
-                const firstFutureIndex = times.findIndex(t => new Date(t) >= now);
-                startIndex = (firstFutureIndex === -1) ? 0 : firstFutureIndex;
-            }
+            const startIndex = 0;
 
             renderTimeline(startIndex);
             updateMap(startIndex, true);
@@ -333,25 +357,43 @@
     }
 
     function renderTimeline(startIndex = 0) {
-        const dayBar = document.getElementById('dayLabels');
-        dayBar.innerHTML = '';
+        const dayLabelsContainer = document.getElementById('dayLabels');
+        dayLabelsContainer.innerHTML = '';
+
         if (times.length === 0) {
             timeSlider.style.display = 'none';
-            dayBar.innerHTML = "<div style='text-align:center; width:100%;'>Nessun dato temporale.</div>";
+            document.getElementById('dayLabels-wrapper').style.display = 'none';
             playPauseBtn.disabled = true;
             document.getElementById('currentTime').textContent = "--";
             return;
         }
+
+        document.getElementById('dayLabels-wrapper').style.display = 'flex';
         playPauseBtn.disabled = false;
         timeSlider.style.display = 'block';
-        const days = [...new Set(times.map(t => new Date(t).toISOString().split('T')[0]))];
+
+        const dayCounts = {};
+        times.forEach(t => {
+            const day = t.split('T')[0];
+            dayCounts[day] = (dayCounts[day] || 0) + 1;
+        });
+
+        const days = Object.keys(dayCounts).sort();
+
         days.forEach(d => {
-            const dt = new Date(d);
+            const dt = new Date(d + 'T12:00:00');
             const div = document.createElement('div');
             div.textContent = dt.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
-            div.onclick = () => { pausePlayback(); const idx = times.findIndex(x => x.startsWith(d)); if (idx >= 0) updateMap(idx, true); };
-            dayBar.appendChild(div);
+            div.style.flexGrow = dayCounts[d];
+
+            div.onclick = () => {
+                pausePlayback();
+                const idx = times.findIndex(x => x.startsWith(d));
+                if (idx >= 0) updateMap(idx, true);
+            };
+            dayLabelsContainer.appendChild(div);
         });
+
         timeSlider.min = 0;
         timeSlider.max = times.length > 0 ? times.length - 1 : 0;
         timeSlider.value = startIndex;
@@ -365,15 +407,45 @@
         updateMapColors();
     }
 
+    // --- MODIFICA INIZIO: Funzioni di aggiornamento corrette ---
     function updateMapColors() {
         Object.values(polylines).forEach(poly => {
             if (poly !== selectedPoly) {
-                poly.setStyle({ opacity: 1 });
                 const val = getCurrentValue(poly);
                 updatePolylineColor(poly, val);
             }
         });
+
+        if (selectedPoly) {
+            const val = getCurrentValue(selectedPoly);
+            const newColor = getColorForValue(val);
+
+            if (highlightFill) {
+                highlightFill.setStyle({ color: newColor });
+            }
+
+            // Aggiorna forzatamente il tooltip ricreandolo
+            const tooltipText = buildTooltipText(selectedPoly, val);
+            highlightGroup.unbindTooltip();
+            highlightGroup.bindTooltip(tooltipText, { direction: 'top', sticky: true });
+        }
     }
+
+    function buildTooltipText(poly, val) {
+        const varLabel = variabileSelect.selectedOptions[0].text.split(' (')[0];
+        const unit = SCALES[currentVar].unit;
+        const valueText = val !== null ? Number(val).toFixed(1) + ' ' + unit : 'Dato non disponibile';
+        return `<b>${poly.options.nome}</b><br>${varLabel}: ${valueText}`;
+    }
+
+    function updatePolylineColor(poly, val) {
+        const tooltipText = buildTooltipText(poly, val);
+        poly.setTooltipContent(tooltipText);
+
+        const color = val !== null ? getColorForValue(val) : COLORS.DEFAULT;
+        poly.setStyle({ color: color, weight: COLORS.DEFAULT_WEIGHT, opacity: 1 });
+    }
+    // --- MODIFICA FINE ---
 
     function getCurrentValue(poly) {
         const idx = +timeSlider.value;
@@ -385,17 +457,6 @@
         return recordForTime ? recordForTime[currentVar] : null;
     }
 
-    function updatePolylineColor(poly, val) {
-        const varLabel = variabileSelect.selectedOptions[0].text.split(' (')[0];
-        const unit = SCALES[currentVar].unit;
-
-        const tooltipText = `<b>${poly.options.nome}</b><br>${varLabel}: ${val !== null ? Number(val).toFixed(1) + ' ' + unit : 'Dato non disponibile'}`;
-        poly.setTooltipContent(tooltipText);
-
-        const color = val !== null ? getColorForValue(val) : COLORS.DEFAULT;
-        poly.setStyle({ color: color, weight: COLORS.DEFAULT_WEIGHT, opacity: 1 });
-    }
-
     function getColorForValue(v) {
         const sc = SCALES[currentVar];
         if (v === null || v === undefined) return COLORS.DEFAULT;
@@ -403,7 +464,6 @@
         return sc.steps[sc.steps.length - 1].color;
     }
 
-    // --- NUOVA FUNZIONE PER CONTROLLARE GLI ALLARMI ---
     async function checkForAlerts() {
         try {
             const res = await fetch(`/api/allarmi?strada=${currentStrada}`);
@@ -425,7 +485,10 @@
         pausePlayback();
         currentStrada = stradaSelect.value;
         kmSearch.value = '';
-        if (selectedPoly) { selectedPoly = null; }
+        if (selectedPoly) {
+            selectedPoly = null;
+            highlightFill = null;
+        }
         highlightGroup.clearLayers();
         btnGrafico.style.display = 'none';
         displaySegmentsAndList();
