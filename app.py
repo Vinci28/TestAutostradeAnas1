@@ -341,6 +341,44 @@ def data_range():
     finally:
         if conn: conn.close()
 
+# === API PER CONTROLLO AGGIORNAMENTI ===
+
+
+@app.route('/api/check_update')
+def check_update():
+    tratto = request.args.get('tratto')
+    if not tratto:
+        return jsonify({"errore": "Parametro 'tratto' mancante"}), 400
+    # Usiamo 'previsionale' perché stiamo controllando la tabella previsionale
+    tabella = get_table_name(tratto, 'previsionale')
+    if not tabella:
+        return jsonify({"errore": f"Configurazione non trovata per il tratto: {tratto}"}), 404
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        # Query super leggera per ottenere solo il timestamp dell'ultimo inserimento
+        query = f"SELECT MAX(downloaded_at) FROM {tabella} WHERE tratto = %s"
+        cursor.execute(query, (tratto,))
+        latest_update = cursor.fetchone()[0]
+        if latest_update:
+            # Restituiamo il timestamp in formato ISO 8601, standard per JS
+            return jsonify({"latest_update": latest_update.isoformat()})
+        else:
+            # Nessun dato trovato per questo tratto
+            return jsonify({"latest_update": None})
+        df = pd.read_sql(query, conn, params=params)
+        return df.to_json(orient='records', date_format='iso')
+    except Exception as e:
+        logging.error(f"💥 Errore in /api/check_update: {str(e)}", exc_info=True)
+        return jsonify({"errore": "Errore interno durante il controllo degli aggiornamenti"}), 500
+        logging.error(f"Errore in /api/dati_tratto: {e}", exc_info=True)
+        return jsonify({"errore": "Errore recupero dati storici"}), 500
+
+    finally:
+        if conn:
+            conn.close()
+        if conn: conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
