@@ -449,7 +449,7 @@ def main():
 
         # --- 3. Crea una cartella temporanea per i download ---
         with tempfile.TemporaryDirectory() as temp_dir:
-            print(f"\nCreato un direttorio temporaneo: {temp_dir}")
+            print(f"\nCreato una cartella temporanea: {temp_dir}")
 
             # --- 4. Itera su ogni cartella giornaliera trovata ---
             for daily_folder_path in folders_to_process:
