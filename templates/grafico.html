@@ -481,7 +481,6 @@
       document.getElementById('applica-filtro').addEventListener('click', () => {
         const inizio = document.getElementById('filtro-inizio').value;
         const fine = document.getElementById('filtro-fine').value;
-        if (!inizio || !fine) return alert("Seleziona sia la data di inizio che di fine.");
         if (new Date(fine) < new Date(inizio)) return alert("La data di fine non può precedere quella di inizio.");
         caricaDati(tratto, inizio, fine);
       });
