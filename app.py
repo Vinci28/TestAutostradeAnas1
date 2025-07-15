@@ -112,6 +112,8 @@ def mappa_previsionale():
 
             batch_start_ts = max_ts - timedelta(minutes=15)
 
+            # --- MODIFICA APPLICATA QUI ---
+            # Aggiunto "AND time >= %s" per filtrare solo le previsioni future.
             query = """
                 WITH latest_data AS (
                     SELECT
@@ -122,10 +124,12 @@ def mappa_previsionale():
                 )
                 SELECT tratto, time, temperature, windspeed, precipitation
                 FROM latest_data
-                WHERE rn = 1 ORDER BY tratto, time;
+                WHERE rn = 1 AND time >= %s
+                ORDER BY tratto, time;
             """.format(table_name=tabella)
 
-            cursor.execute(query, (batch_start_ts, max_ts))
+            # Aggiunto datetime.now() come parametro per il nuovo filtro
+            cursor.execute(query, (batch_start_ts, max_ts, datetime.now()))
             rows = cursor.fetchall()
             if not rows: return jsonify({"times": [], "data": {}})
 
@@ -258,7 +262,7 @@ def grafico():
                 return "Nessun dato previsionale disponibile per questo tratto.", 404
 
             query_dati = f"SELECT time, temperature, precipitation, windspeed, precipitation_probability FROM {tabella} WHERE tratto = %s AND downloaded_at = %s AND time >= %s ORDER BY time"
-            df = pd.read_sql(query_dati, conn, params=(tratto, ultimo_download, ultimo_download))
+            df = pd.read_sql(query_dati, conn, params=(tratto, ultimo_download, datetime.now()))
 
             return render_template('grafico_previsionale.html', dati=df.to_dict(orient='records'), tratto=tratto,
                                    ultimo_download=ultimo_download.isoformat())
