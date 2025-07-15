@@ -41,9 +41,18 @@
     #slider-wrapper { display: flex; align-items: center; width: 100%; }
     #playPauseBtn { background: transparent; border: 2px solid #fff; color: #fff; border-radius: 50%; width: 35px; height: 35px; font-size: 16px; cursor: pointer; margin-right: 15px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
     #playPauseBtn:hover { background: rgba(255,255,255,0.2); }
-    #timeSlider { -webkit-appearance:none; width:100%; height:6px; background:rgba(255,255,255,0.3); border-radius:3px; }
+    /* --- MODIFICA ESEGUITA --- */
+    #timeSlider { -webkit-appearance:none; flex-grow: 1; height:6px; background:rgba(255,255,255,0.3); border-radius:3px; }
     #timeSlider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:#FFC100; border-radius:50%; cursor:pointer; border: 2px solid #fff; }
-    #currentTime { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+    #currentTime {
+        color: #FFC100; /* Colore giallo per alta visibilità */
+        font-size: 15px; /* Testo più grande e leggibile */
+        font-weight: 600;
+        margin-left: 20px; /* Spazio a sinistra dello slider */
+        min-width: 125px; /* Larghezza minima per stabilità layout */
+        text-align: center;
+        flex-shrink: 0; /* Impedisce che si rimpicciolisca */
+    }
     #loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:12px 20px; border-radius:6px; box-shadow:0 0 8px rgba(0,0,0,0.3); font-size:16px; display:none; z-index:2002; }
     #btnGrafico { display:none; margin-top: 15px; }
     #btnGrafico button { background:#28a745; color:white; border:none; padding: 10px; font-weight: bold; cursor: pointer; width: 100%; border-radius: 4px; transition: background-color 0.2s; }
@@ -108,8 +117,8 @@
     <div id="slider-wrapper">
         <button id="playPauseBtn">▶</button>
         <input id="timeSlider" type="range" min="0" max="0" value="0">
+        <div id="currentTime">--</div>
     </div>
-    <div id="currentTime">--</div>
 </div>
 <footer id="main-footer">
     &copy; 2024 ANAS S.p.A. | Società del Polo Infrastrutture del Gruppo FS Italiane - P.IVA 01122701000
