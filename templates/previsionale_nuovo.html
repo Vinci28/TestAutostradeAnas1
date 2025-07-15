@@ -193,6 +193,30 @@
     const normalizeKey = (str) => str ? str.replace(/[\s._()-]/g, "").toLowerCase() : '';
     const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); }; };
 
+    // --- INIZIO LOGICA RICERCA INTELLIGENTE ---
+    function parseKm(kmStr) {
+        if (!kmStr || typeof kmStr !== 'string') return null;
+        const parts = kmStr.split('+');
+        if (parts.length !== 2) return null;
+        const km = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(km) || isNaN(m)) return null;
+        return km * 1000 + m;
+    }
+
+    function getKmRange(segmentName) {
+        const kmRegex = /Km\s(\d+\+\d{3})/g;
+        const matches = [...segmentName.matchAll(kmRegex)];
+        if (matches.length < 2) return null;
+
+        const start = parseKm(matches[0][1]);
+        const end = parseKm(matches[1][1]);
+
+        if (start === null || end === null) return null;
+        return { start: Math.min(start, end), end: Math.max(start, end) };
+    }
+    // --- FINE LOGICA RICERCA INTELLIGENTE ---
+
     function renderLegend() {
         const lg = document.getElementById('legend');
         const scale = SCALES[currentVar];
@@ -240,6 +264,7 @@
             polylines[normKey] = poly;
         });
 
+        // La lista viene ora popolata da updateSearchList
         updateSearchList();
 
         if (BOUNDS[currentStrada] && !kmSearch.value) {
@@ -249,15 +274,37 @@
 
     function updateSearchList() {
         segmentListContainer.innerHTML = '';
-        const filterText = kmSearch.value.toLowerCase();
+        const filterText = kmSearch.value.trim().toLowerCase();
         if (!filterText) {
             segmentListContainer.style.display = 'none';
             return;
         }
 
         const stradaLower = currentStrada.toLowerCase();
-        const filteredForList = allSegments
-            .filter(t => t.nome.toLowerCase().includes(stradaLower) && t.nome.toLowerCase().includes(filterText));
+        const segmentsForStrada = allSegments.filter(t => t.nome.toLowerCase().includes(stradaLower));
+
+        // 1. Ricerca testuale standard
+        const textResults = segmentsForStrada.filter(t => t.nome.toLowerCase().includes(filterText));
+
+        // 2. Ricerca intelligente per chilometro
+        let intelligentResults = [];
+        const searchKmRegex = /(?:km\s*)?(\d+\+\d{1,3})/i;
+        const searchMatch = filterText.match(searchKmRegex);
+        if (searchMatch) {
+            const searchedKmValue = parseKm(searchMatch[1]);
+            if (searchedKmValue !== null) {
+                intelligentResults = segmentsForStrada.filter(t => {
+                    const range = getKmRange(t.nome);
+                    return range && searchedKmValue >= range.start && searchedKmValue <= range.end;
+                });
+            }
+        }
+
+        // 3. Combina i risultati senza duplicati
+        const combined = new Map();
+        textResults.forEach(t => combined.set(t.nome, t));
+        intelligentResults.forEach(t => combined.set(t.nome, t));
+        const filteredForList = Array.from(combined.values());
 
         if (filteredForList.length > 0) {
             filteredForList.forEach(tratto => {
@@ -407,7 +454,6 @@
         updateMapColors();
     }
 
-    // --- MODIFICA INIZIO: Funzioni di aggiornamento corrette ---
     function updateMapColors() {
         Object.values(polylines).forEach(poly => {
             if (poly !== selectedPoly) {
@@ -424,7 +470,6 @@
                 highlightFill.setStyle({ color: newColor });
             }
 
-            // Aggiorna forzatamente il tooltip ricreandolo
             const tooltipText = buildTooltipText(selectedPoly, val);
             highlightGroup.unbindTooltip();
             highlightGroup.bindTooltip(tooltipText, { direction: 'top', sticky: true });
@@ -445,7 +490,6 @@
         const color = val !== null ? getColorForValue(val) : COLORS.DEFAULT;
         poly.setStyle({ color: color, weight: COLORS.DEFAULT_WEIGHT, opacity: 1 });
     }
-    // --- MODIFICA FINE ---
 
     function getCurrentValue(poly) {
         const idx = +timeSlider.value;
