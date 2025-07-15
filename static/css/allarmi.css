@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap');
+
+body {
+    font-family: 'Titillium Web', sans-serif;
+    margin: 0;
+    background-color: #f4f7f9;
+    color: #333;
+}
+.top-bar {
+    background-color: #fff;
+    padding: 10px 40px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+}
+.top-bar img {
+    height: 40px;
+    margin-right: 20px;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+header {
+    text-align: center;
+    margin: 20px 0 40px 0;
+}
+h1 {
+    margin: 0;
+    color: #00338D;
+    font-size: 2.2em;
+    font-weight: 700;
+}
+#strada-nome {
+    color: #d32f2f;
+}
+#back-button {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 24px;
+    background-color: #00338D;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.2s;
+    border: none;
+    cursor: pointer;
+}
+#back-button:hover {
+    background-color: #002266;
+    transform: translateY(-2px);
+}
+#alerts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 25px;
+}
+.alert-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-left: 6px solid #dc3545; /* Bordo rosso per tutti gli allarmi */
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.alert-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+.alert-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+.alert-icon {
+    width: 28px;
+    height: 28px;
+    margin-right: 15px;
+}
+.alert-title {
+    font-size: 1.25em;
+    font-weight: 700;
+    color: #00338D; /* Titolo blu ANAS */
+}
+.alert-body p {
+    margin: 8px 0;
+    font-size: 1em;
+    line-height: 1.6;
+}
+.alert-body strong {
+    color: #555;
+}
+.alert-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    display: block;
+    text-align: right;
+    margin-top: 10px;
+    color: #dc3545; /* Valore rosso per evidenza */
+}
+#loading, #no-alerts {
+    text-align: center;
+    font-size: 1.5em;
+    color: #666;
+    padding: 60px 20px;
+    background-color: #fff;
+    border-radius: 8px;
+}
