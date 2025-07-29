@@ -2,12 +2,10 @@ html, body {
     height: 100%;
     margin: 0;
     overflow: hidden;
-    /* Cambio Colore */
     background: #f4f7f9;
 }
 body {
   font-family: Arial, sans-serif;
-  /* Cambio Colore */
   color: #333;
 }
 .page-wrapper {
@@ -21,7 +19,6 @@ body {
 h1 {
   margin-top: 0;
   margin-bottom: 10px;
-  /* Cambio Colore */
   color: #00338D;
   flex-shrink: 0;
 }
@@ -29,11 +26,11 @@ h1 {
     position: absolute;
     top: 20px;
     right: 20px;
-    z-index: 1001; /* Assicura che sia sopra gli altri elementi */
+    z-index: 1001;
 }
 
 .logo-container img {
-    height: 60px; /* Puoi regolare l'altezza secondo necessità */
+    height: 60px;
     width: auto;
 }
 .aggiornamento-info {
@@ -42,7 +39,6 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    /* Cambio Colore */
     color: #6c757d;
 }
 #ultimo-download {
@@ -50,7 +46,6 @@ h1 {
 }
 #countdown-refresh {
     font-size: 0.9em;
-    /* Cambio Colore */
     color: #00338D;
     font-weight: bold;
 }
@@ -59,7 +54,6 @@ h1 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  /* Cambio Colore */
   background: #fff;
   border: 1px solid #dee2e6;
   padding: 15px;
@@ -75,7 +69,6 @@ h1 {
 }
 #reset-zoom-globale, #search-button, .report-btn-global {
   padding: 8px 15px;
-  /* Cambio Colore */
   background-color: #00338D;
   color: white;
   border: none;
@@ -83,24 +76,20 @@ h1 {
   cursor: pointer;
 }
 #reset-zoom-globale:hover, #search-button:hover, .report-btn-global:hover {
-  /* Cambio Colore */
   background-color: #002266;
 }
  .report-btn-global {
-    /* Cambio Colore */
     background-color: #ffc107;
     color: #212529;
     font-weight: bold;
 }
 .report-btn-global:hover {
-    /* Cambio Colore */
     background-color: #e0a800;
 }
 #search-tratto {
   padding: 8px;
   border-radius: 4px;
   width: 250px;
-  /* Cambio Colore */
   border: 1px solid #ced4da;
   background-color: #fff;
   color: #333;
@@ -114,7 +103,6 @@ h1 {
     z-index: 1000;
     max-height: 200px;
     overflow-y: auto;
-    /* Cambio Colore */
     background: #fff;
     border: 1px solid #dee2e6;
     border-top: none;
@@ -123,11 +111,9 @@ h1 {
 .suggestion-item {
     padding: 10px;
     cursor: pointer;
-    /* Cambio Colore */
     color: #333;
 }
 .suggestion-item:hover {
-    /* Cambio Colore */
     background-color: #00338D;
     color: white;
 }
@@ -145,7 +131,6 @@ h1 {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* Cambio Colore */
   background: #fff;
   border: 1px solid #e0e0e0;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -159,7 +144,6 @@ h1 {
 .grafico-title {
   font-weight: bold;
   font-size: 16px;
-  /* Cambio Colore */
   color: #00338D;
 }
 .button-group {
@@ -175,19 +159,15 @@ h1 {
   font-size: 13px;
 }
 .reset-btn {
-    /* Cambio Colore */
     background-color: #00338D;
 }
 .report-btn {
-    /* Cambio Colore */
     background-color: #28a745;
 }
 .reset-btn:hover {
-    /* Cambio Colore */
     background-color: #002266;
 }
 .report-btn:hover {
-    /* Cambio Colore */
     background-color: #218838;
 }
 .chart-container {
@@ -209,7 +189,6 @@ h1 {
     top: 50%;
     transform: translateY(-50%);
     border-radius: 2px;
-    /* Cambio Colore */
     background-color: #e9ecef;
 }
 .scrollbar-handle {
@@ -221,7 +200,6 @@ h1 {
     transform: translateY(-50%);
     cursor: grab;
     user-select: none;
-    /* Cambio Colore */
     background-color: #00338D;
     border: 2px solid #fff;
 }

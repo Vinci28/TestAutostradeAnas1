@@ -10,9 +10,7 @@ import requests
 import base64
 import tempfile
 
-# ==============================================================================
-# === CONFIGURAZIONE CENTRALIZZATA (INVARIATA) ===
-# ==============================================================================
+
 
 # --- CONFIGURAZIONE DATABRICKS ---
 DATABRICKS_INSTANCE = "https://adb-907348808966690.10.azuredatabricks.net"
@@ -28,7 +26,7 @@ DB_CONFIG = {
     "port": 5432
 }
 
-# --- CONFIGURAZIONE STRADE PREVISIONALI (INVARIATA) ---
+# --- CONFIGURAZIONE STRADE PREVISIONALI
 STRADE_PREVISIONALI_CONFIG = {
     "SS675": {
         "table_name": "dati_previsionale_SS675",
@@ -122,7 +120,6 @@ STRADE_PREVISIONALI_CONFIG = {
     "A90": {
         "table_name": "dati_previsionale_A90",
         "punto_tratto_map": {
-            # === DA COMPLETARE: Inserisci qui la mappa per la A90 ===
             "Punto_1": "A90 Km 0+000_A90 Km 0+996",
             "Punto_2": "A90 Km 0+996_A90 Km 1+982",
             "Punto_3": "A90 Km 1+982_A90 Km 2+963",
@@ -320,9 +317,6 @@ CAMPI_INTERESSE = ["precipitation", "precipitation_probability", "precipitation_
                    "snowfraction", "temperature", "windspeed", "winddirection", "rainspot", "predictability",
                    "predictability_class"]
 
-# ==============================================================================
-# === FUNZIONI PER INTERAGIRE CON DATABRICKS DBFS ===
-# ==============================================================================
 
 def list_dbfs_content(folder_path):
     """Elenca il contenuto (file e directory) di una cartella DBFS."""
@@ -399,10 +393,7 @@ def extract_punto_from_filename(filename):
     return match.group(1) if match else None
 
 
-# ==============================================================================
-# === SCRIPT PRINCIPALE (INVARIATO) ===
-# La funzione 'main' che contiene la logica di lavoro non cambia.
-# ==============================================================================
+
 
 def main():
     conn = None
@@ -502,9 +493,7 @@ def main():
         print("\nCiclo di elaborazione previsionale completato. La cartella temporanea è stata rimossa.")
 
 
-# ==============================================================================
-# === MODIFICA: BLOCCO DI ESECUZIONE PERSISTENTE ===
-# ==============================================================================
+
 if __name__ == "__main__":
     TARGET_MINUTE = 5  # Esegui al quinto minuto di ogni ora
 

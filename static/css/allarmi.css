@@ -60,7 +60,7 @@ h1 {
 .alert-card {
     background-color: #fff;
     border: 1px solid #e0e0e0;
-    border-left: 6px solid #dc3545; /* Bordo rosso per tutti gli allarmi */
+    border-left: 6px solid #dc3545;
     padding: 20px;
     border-radius: 8px;
     display: flex;
@@ -87,7 +87,7 @@ h1 {
 .alert-title {
     font-size: 1.25em;
     font-weight: 700;
-    color: #00338D; /* Titolo blu ANAS */
+    color: #00338D;
 }
 .alert-body p {
     margin: 8px 0;
@@ -103,7 +103,7 @@ h1 {
     display: block;
     text-align: right;
     margin-top: 10px;
-    color: #dc3545; /* Valore rosso per evidenza */
+    color: #dc3545;
 }
 #loading, #no-alerts {
     text-align: center;

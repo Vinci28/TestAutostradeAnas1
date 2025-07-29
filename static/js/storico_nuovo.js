@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displaySegments();
     }, 300));
 
-    // Initial load
+
     (async () => {
         await fetchSegmentsData();
         displaySegments();

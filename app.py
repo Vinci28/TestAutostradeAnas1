@@ -8,13 +8,13 @@ import re
 
 app = Flask(__name__, static_url_path='/static')
 
-# Configura logging
+# Configurazione logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# === CONFIGURAZIONE DB ===
+# Configurazione DB
 DB_CONFIG = {
     "dbname": "autostradeanasdb",
     "user": "vinc",
@@ -23,14 +23,14 @@ DB_CONFIG = {
     "port": 5432
 }
 
-# === SOGLIE PER ALLARMI ===
+#SOGLIE PER ALLARMI
 ALLARMI_SOGLIE = {
-    'temperature_min': 0.0,
+    'temperature_min': 20.0,
     'windspeed_max': 80.0,
     'precipitation_max': 25.0
 }
 
-# Identificativi delle strade gestite
+#Identificativi delle strade gestite
 ROAD_IDENTIFIERS = ['A90', 'SS51', 'SS675']
 
 
@@ -43,16 +43,14 @@ def get_connection():
         return None
 
 
-# *** FUNZIONE CORRETTA ***
 def get_table_name(strada, tipo):
     """Determina il nome corretto della tabella in MINUSCOLO."""
     if not strada or not tipo: return None
 
-    # Modifica: Rimosso l'aggiunta della 'i'. Ora usa 'storico' e 'previsionale'.
     table_type = tipo
 
     strada_norm = strada.upper()
-    prefix = f"dati_{table_type}_"  # es. dati_previsionale_
+    prefix = f"dati_{table_type}_"
 
     if 'A90' in strada_norm: return f"{prefix}a90"
     if 'SS51' in strada_norm: return f"{prefix}ss51"
@@ -68,7 +66,7 @@ def normalize_key(name):
     return re.sub(r'[^a-z0-9+]', '', str(name).lower())
 
 
-# === ENDPOINT STATICI (PAGINE HTML) ===
+#ENDPOINT STATICI (PAGINE HTML)
 @app.route("/")
 def index():
     return redirect(url_for('previsionale'))
@@ -90,7 +88,7 @@ def allarmi_page():
     return render_template("allarmi.html")
 
 
-# === ENDPOINT API ===
+#ENDPOINT API
 
 @app.route("/api/mappa/previsionale")
 def mappa_previsionale():
@@ -112,8 +110,6 @@ def mappa_previsionale():
 
             batch_start_ts = max_ts - timedelta(minutes=15)
 
-            # --- MODIFICA APPLICATA QUI ---
-            # Aggiunto "AND time >= %s" per filtrare solo le previsioni future.
             query = """
                 WITH latest_data AS (
                     SELECT
@@ -128,7 +124,6 @@ def mappa_previsionale():
                 ORDER BY tratto, time;
             """.format(table_name=tabella)
 
-            # Aggiunto datetime.now() come parametro per il nuovo filtro
             cursor.execute(query, (batch_start_ts, max_ts, datetime.now()))
             rows = cursor.fetchall()
             if not rows: return jsonify({"times": [], "data": {}})
@@ -345,15 +340,15 @@ def data_range():
     finally:
         if conn: conn.close()
 
-# === API PER CONTROLLO AGGIORNAMENTI ===
 
 
+#API PER CONTROLLO AGGIORNAMENTI
 @app.route('/api/check_update')
 def check_update():
     tratto = request.args.get('tratto')
     if not tratto:
         return jsonify({"errore": "Parametro 'tratto' mancante"}), 400
-    # Usiamo 'previsionale' perché stiamo controllando la tabella previsionale
+
     tabella = get_table_name(tratto, 'previsionale')
     if not tabella:
         return jsonify({"errore": f"Configurazione non trovata per il tratto: {tratto}"}), 404
@@ -361,7 +356,6 @@ def check_update():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        # Query super leggera per ottenere solo il timestamp dell'ultimo inserimento
         query = f"SELECT MAX(downloaded_at) FROM {tabella} WHERE tratto = %s"
         cursor.execute(query, (tratto,))
         latest_update = cursor.fetchone()[0]
@@ -395,7 +389,6 @@ def check_update_mappa():
     if not strada:
         return jsonify({"errore": "Parametro 'strada' mancante"}), 400
 
-    # Usiamo 'previsionale' perché stiamo controllando la tabella delle previsioni
     tabella = get_table_name(strada, 'previsionale')
     if not tabella:
         return jsonify({"errore": f"Configurazione non trovata per la strada: {strada}"}), 404
@@ -406,13 +399,12 @@ def check_update_mappa():
         if not conn: return jsonify({"errore": "Errore di connessione al DB"}), 500
 
         with conn.cursor() as cursor:
-            # Query super leggera per ottenere solo il timestamp dell'ultimo inserimento
             query = f"SELECT MAX(downloaded_at) FROM {tabella}"
             cursor.execute(query)
             latest_update = cursor.fetchone()[0]
 
             if latest_update:
-                # Restituiamo il timestamp in formato ISO 8601, standard per JS
+
                 return jsonify({"latest_update": latest_update.isoformat()})
             else:
                 # Nessun dato trovato per questa strada

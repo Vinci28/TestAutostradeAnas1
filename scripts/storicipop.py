@@ -7,19 +7,15 @@ from datetime import datetime
 from psycopg2.extras import execute_values
 import requests
 import base64
-import tempfile  # Usato per creare una cartella temporanea sicura
-
-# ==============================================================================
-# === CONFIGURAZIONE CENTRALIZZATA ===
-# ==============================================================================
+import tempfile
 
 # --- CONFIGURAZIONE ESECUZIONE ---
 # 🔁 MODIFICA QUESTA DATA per scegliere quale giorno elaborare.
 #    Lo script cercherà tutte le cartelle in DBFS che iniziano con questa data.
 #    Formato: "YYYY-MM-DD"
-DATA_ELABORAZIONE = "2025-07-02"
+DATA_ELABORAZIONE = "2025-07-17"
 
-# --- CONFIGURAZIONE DATABRICKS (presa da download_storici.py) ---
+# --- CONFIGURAZIONE DATABRICKS
 DATABRICKS_INSTANCE = "https://adb-907348808966690.10.azuredatabricks.net"
 TOKEN = "dapi63d731565808e39737b06d2c17a41888"
 # Path di base dove lo script di Databricks salva i dati
@@ -328,10 +324,6 @@ CAMPI_INTERESSE = ["precipitation", "precipitation_probability", "precipitation_
                    "predictability_class"]
 
 
-# ==============================================================================
-# === FUNZIONI PER INTERAGIRE CON DATABRICKS DBFS ===
-# ==============================================================================
-
 def list_dbfs_content(folder_path):
     """Elenca il contenuto (file e directory) di una cartella DBFS."""
     url = f"{DATABRICKS_INSTANCE}/api/2.0/dbfs/list"
@@ -363,12 +355,8 @@ def download_dbfs_file(dbfs_path, local_path):
         return False
 
 
-# ==============================================================================
-# === FUNZIONI DATABASE E LOGICA DI PARSING (invariate) ===
-# ==============================================================================
 
 def crea_tabelle(conn):
-    # (Questa funzione è rimasta invariata)
     with conn.cursor() as cur:
         for config in STRADE_CONFIG.values():
             table_name = config['table_name']
@@ -384,14 +372,12 @@ def crea_tabelle(conn):
 
 
 def get_processed_files(conn):
-    # (Questa funzione è rimasta invariata)
     with conn.cursor() as cur:
         cur.execute(f"SELECT filename FROM {LOG_TABLE_NAME};")
         return {row[0] for row in cur.fetchall()}
 
 
 def inserisci_dati_e_log(conn, df, filename, table_name):
-    # (Questa funzione è rimasta invariata)
     with conn.cursor() as cur:
         columns = df.columns.tolist()
         data_tuples = [tuple(row) for row in df.to_numpy()]
@@ -403,7 +389,6 @@ def inserisci_dati_e_log(conn, df, filename, table_name):
 
 
 def extract_timestamp_from_filename(filename):
-    # (Questa funzione è rimasta invariata)
     match = re.search(r"(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})", filename)
     if match:
         try:
@@ -414,14 +399,11 @@ def extract_timestamp_from_filename(filename):
 
 
 def extract_punto_from_filename(filename):
-    # (Questa funzione è rimasta invariata)
     match = re.search(r"(Punto_\d+)", filename)
     return match.group(1) if match else None
 
 
-# ==============================================================================
-# === SCRIPT PRINCIPALE (Logica di esecuzione modificata) ===
-# ==============================================================================
+
 
 def main():
     conn = None

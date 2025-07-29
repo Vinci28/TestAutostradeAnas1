@@ -200,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGrafico.style.display = 'block';
     }
 
-    // This function needs to be globally accessible for the button's onclick
     window.visualizzaGraficoPrevisionale = function () {
         if (!selectedPoly) { return alert("Seleziona prima un tratto dalla mappa."); }
         const nomeTratto = selectedPoly.options.nome;

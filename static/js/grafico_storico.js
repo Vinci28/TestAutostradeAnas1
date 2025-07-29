@@ -450,11 +450,11 @@ function creaGrafici(dati) {
         'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', yMinTemp, yMaxTemp),
         'prec': config('Precipitazione (mm)', dati.map(d => d.precipitation), '#007bff', 0, 50),
         'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', yMinWind, yMaxWind),
-        'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#ffc107', 0, 100)
+        'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#198f9b', 0, 100)
     };
     const probConfig = configs['prob'];
     probConfig.type = 'bar';
-    probConfig.data.datasets[0].backgroundColor = '#ffc107';
+    probConfig.data.datasets[0].backgroundColor = '#198f9b';
     delete probConfig.data.datasets[0].tension;
     delete probConfig.data.datasets[0].fill;
     ids.forEach(id => {
