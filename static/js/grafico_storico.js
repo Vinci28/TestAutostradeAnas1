@@ -2,6 +2,7 @@ const chartRefs = {};
 let datiPerReport = [];
 let allRoadSegments = [];
 
+// Parsa una stringa "km+metri" in un valore totale in metri.
 function parseKm(kmStr) {
     if (!kmStr || typeof kmStr !== 'string') return null;
     const parts = kmStr.split('+');
@@ -12,6 +13,7 @@ function parseKm(kmStr) {
     return km * 1000 + m;
 }
 
+// Estrae l'intervallo di chilometri da una stringa del nome del segmento.
 function getKmRange(segmentName) {
     const kmRegex = /Km\s(\d+\+\d{3})/g;
     const matches = [...segmentName.matchAll(kmRegex)];
@@ -22,6 +24,7 @@ function getKmRange(segmentName) {
     return { start: Math.min(start, end), end: Math.max(start, end) };
 }
 
+// Funzione helper per avviare il download di un file.
 function triggerDownload(blob, filename) {
     const link = document.createElement('a');
     if (link.download !== undefined) {
@@ -34,6 +37,8 @@ function triggerDownload(blob, filename) {
         document.body.removeChild(link);
     }
 }
+
+// Genera e scarica un report CSV con tutti i dati dei grafici.
 function downloadGlobalCSV() {
     if (!datiPerReport || datiPerReport.length === 0) {
         alert('Nessun dato disponibile per generare il report.');
@@ -44,7 +49,7 @@ function downloadGlobalCSV() {
     let csvRows = [header];
     datiPerReport.forEach(row => {
         const date = new Date(row.time);
-        date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
+        date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore per correggere il fuso orario
         const time = date.toISOString().slice(0, 19).replace('T', ' ');
 
         // Sostituisce il punto con la virgola per i decimali e gestisce valori null
@@ -64,6 +69,7 @@ function downloadGlobalCSV() {
     triggerDownload(blob, filename);
 }
 
+// Genera e scarica un report CSV per un singolo grafico specifico.
 function downloadChartCSV(chartId) {
     if (!datiPerReport || datiPerReport.length === 0) {
         alert('Nessun dato disponibile per generare il report.');
@@ -81,7 +87,7 @@ function downloadChartCSV(chartId) {
     let csvRows = [config.header];
     datiPerReport.forEach(row => {
         const date = new Date(row[config.columns[0]]);
-        date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
+        date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore per correggere il fuso orario
         const time = date.toISOString().slice(0, 19).replace('T', ' ');
 
         // Sostituisce il punto con la virgola per i decimali e gestisce valori null
@@ -98,44 +104,15 @@ function downloadChartCSV(chartId) {
     const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
     triggerDownload(blob, filename);
 }
-function downloadChartCSV(chartId) {
-    if (!datiPerReport || datiPerReport.length === 0) {
-        alert('Nessun dato disponibile per generare il report.');
-        return;
-    }
-    // USA IL PUNTO E VIRGOLA come separatore
-    const reportConfig = {
-        'temp': { header: 'Time;Temperatura_C', columns: ['time', 'temperature'] },
-        'prec': { header: 'Time;Precipitazione_mm', columns: ['time', 'precipitation'] },
-        'wind': { header: 'Time;Vento_ms', columns: ['time', 'windspeed'] },
-        'prob': { header: 'Time;Prob_Precipitazione_Percent', columns: ['time', 'precipitation_probability'] }
-    };
-    const config = reportConfig[chartId];
-    if (!config) return;
-    let csvRows = [config.header];
-    datiPerReport.forEach(row => {
-        const date = new Date(row[config.columns[0]]);
-        date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
-        const time = date.toISOString().slice(0, 19).replace('T', ' ');
 
-        // Sostituisce il punto con la virgola per i decimali e gestisce valori null
-        const valueRaw = row[config.columns[1]];
-        const value = valueRaw !== null && valueRaw !== undefined ? valueRaw.toString().replace('.', ',') : '';
-
-        // Usa il punto e virgola per unire
-        csvRows.push(`${time};${value}`);
-    });
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const urlParams = new URLSearchParams(window.location.search);
-    const tratto = urlParams.get('tratto') || 'report';
-    const filename = `Report_${chartId}_${tratto.replace(/[^a-z0-9]/gi, '_')}.csv`;
-    triggerDownload(blob, filename);
-}
+// Configura e gestisce una scrollbar personalizzata per i grafici.
+// Permette di navigare e zoomare all'interno dei dati del grafico.
 function setupCustomScrollbar(chart, scrollbarElement, allData) {
     const handle = scrollbarElement.querySelector('.scrollbar-handle');
     const track = scrollbarElement.querySelector('.scrollbar-track');
     let isDragging = false;
+
+    // Aggiorna la posizione e la dimensione del "manico" della scrollbar.
     const updateHandle = () => {
         if (!chart.scales || !chart.scales.x) return;
         const scale = chart.scales.x;
@@ -152,23 +129,23 @@ function setupCustomScrollbar(chart, scrollbarElement, allData) {
         const maxHandleLeft = track.offsetWidth - handle.offsetWidth;
         handle.style.left = `${scrollPercent * maxHandleLeft}px`;
     };
+
+    // Si aggancia agli eventi di zoom e pan di Chart.js per aggiornare la scrollbar.
     if (chart.options.plugins.zoom) {
         const existingOnPanComplete = chart.options.plugins.zoom.pan.onPanComplete;
         chart.options.plugins.zoom.pan.onPanComplete = (chartContext) => {
-            if (typeof existingOnPanComplete === 'function') {
-                existingOnPanComplete(chartContext);
-            }
+            if (typeof existingOnPanComplete === 'function') { existingOnPanComplete(chartContext); }
             updateHandle();
         };
         const existingOnZoomComplete = chart.options.plugins.zoom.zoom.onZoomComplete;
         chart.options.plugins.zoom.zoom.onZoomComplete = (chartContext) => {
-            if (typeof existingOnZoomComplete === 'function') {
-                existingOnZoomComplete(chartContext);
-            }
+            if (typeof existingOnZoomComplete === 'function') { existingOnZoomComplete(chartContext); }
             updateHandle();
         };
     }
-    setTimeout(updateHandle, 500);
+    setTimeout(updateHandle, 500); // Aggiorna inizialmente dopo un breve ritardo.
+
+    // Gestisce il trascinamento del "manico" della scrollbar.
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
         handle.style.cursor = 'grabbing';
@@ -181,6 +158,7 @@ function setupCustomScrollbar(chart, scrollbarElement, allData) {
         const totalPoints = allData.length;
         const initialVisiblePoints = scale.max - scale.min;
         const scrollableRange = totalPoints - initialVisiblePoints;
+
         const onMouseMove = (moveEvent) => {
             if (!isDragging || scrollableRange <= 0) return;
             moveEvent.preventDefault();
@@ -193,6 +171,7 @@ function setupCustomScrollbar(chart, scrollbarElement, allData) {
             const newMax = newMin + initialVisiblePoints;
             chart.zoomScale('x', {min: newMin, max: newMax}, 'none');
         };
+
         const onMouseUp = () => {
             isDragging = false;
             handle.style.cursor = 'grab';
@@ -205,17 +184,22 @@ function setupCustomScrollbar(chart, scrollbarElement, allData) {
         document.addEventListener('mouseup', onMouseUp);
     });
 }
+
+// Resetta lo zoom di un singolo grafico.
 function resetZoom(id) {
   if (chartRefs[id]) {
     chartRefs[id].resetZoom();
   }
 }
+
+// Resetta lo zoom di tutti i grafici.
 function resetAllZooms() {
   Object.keys(chartRefs).forEach(id => {
     if (chartRefs[id]) chartRefs[id].resetZoom();
   });
 }
 
+// Carica e visualizza l'intervallo di date disponibili per un tratto stradale.
 function caricaIntervalloDate(tratto) {
   const infoElement = document.getElementById('date-range-info');
   if (!tratto) {
@@ -242,6 +226,7 @@ function caricaIntervalloDate(tratto) {
     });
 }
 
+// Gestore dell'evento che si attiva al caricamento del DOM.
 document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
   const tratto = urlParams.get('tratto');
@@ -252,12 +237,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('titolo-tratto').textContent = `Grafico Storico - ${tratto || 'N/D'}`;
   caricaIntervalloDate(tratto);
 
-  if (startDateFromUrl) {
-      document.getElementById('filtro-inizio').value = startDateFromUrl;
-  }
-  if (endDateFromUrl) {
-      document.getElementById('filtro-fine').value = endDateFromUrl;
-  }
+  // Imposta i valori dei filtri data dall'URL.
+  if (startDateFromUrl) { document.getElementById('filtro-inizio').value = startDateFromUrl; }
+  if (endDateFromUrl) { document.getElementById('filtro-fine').value = endDateFromUrl; }
 
   let currentRoad = '';
   if (tratto) {
@@ -265,24 +247,24 @@ document.addEventListener("DOMContentLoaded", () => {
     caricaDati(tratto, startDateFromUrl, endDateFromUrl);
   }
 
+  // Carica i dati dei segmenti stradali per la funzione di ricerca.
   fetch('/static/jsons/tratti_strada_allineati.json')
     .then(res => res.json())
-    .then(data => {
-        allRoadSegments = data;
-    })
+    .then(data => { allRoadSegments = data; })
     .catch(e => console.error("Impossibile caricare i tratti stradali", e));
 
+  // Aggiunge i gestori degli eventi per l'interfaccia.
   document.getElementById('applica-filtro').addEventListener('click', () => {
     const inizio = document.getElementById('filtro-inizio').value;
     const fine = document.getElementById('filtro-fine').value;
     if (new Date(fine) < new Date(inizio)) return alert("La data di fine non può precedere quella di inizio.");
 
-    // Aggiorniamo l'URL per mantenere i filtri
+    // Aggiorna l'URL senza ricaricare la pagina per mantenere lo stato dei filtri.
     const newUrl = new URL(window.location);
     newUrl.searchParams.set('tratto', tratto);
     newUrl.searchParams.set('start_date', inizio);
     newUrl.searchParams.set('end_date', fine);
-    window.history.pushState({}, '', newUrl); // Aggiorna l'URL senza ricaricare
+    window.history.pushState({}, '', newUrl);
 
     caricaDati(tratto, inizio, fine);
   });
@@ -292,6 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById('search-tratto');
   const suggestionsContainer = document.getElementById('suggestions-container');
   const searchButton = document.getElementById('search-button');
+
   searchButton.addEventListener('click', () => {
     const nuovoTratto = searchInput.value;
     if (nuovoTratto) {
@@ -300,6 +283,8 @@ document.addEventListener("DOMContentLoaded", () => {
       alert('Inserisci un nome di tratto da cercare.');
     }
   });
+
+  // Gestisce i suggerimenti di ricerca mentre l'utente digita.
   searchInput.addEventListener('input', () => {
         suggestionsContainer.innerHTML = '';
         const filterText = searchInput.value.trim().toLowerCase();
@@ -352,11 +337,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+// Funzione principale per caricare i dati dall'API e aggiornare i grafici.
 function caricaDati(tratto, startDate, endDate) {
   let url = `/api/dati_tratto?tratto=${encodeURIComponent(tratto)}`;
   if (startDate && endDate) {
     url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
   }
+  // Distrugge i grafici esistenti per evitare problemi.
   Object.values(chartRefs).forEach(chart => {
       if (chart && typeof chart.destroy === 'function') chart.destroy();
   });
@@ -375,17 +362,17 @@ function caricaDati(tratto, startDate, endDate) {
     .catch(err => alert(`Errore nel caricamento dei dati: ${err.message}`));
 }
 
+// Crea e configura i grafici utilizzando Chart.js.
 function creaGrafici(dati) {
-    // Pulisce i contenitori dei grafici prima di disegnarli o mostrare il messaggio
+    // Pulisce e ricrea i canvas dei grafici per evitare sovrapposizioni.
     document.querySelectorAll('.chart-container').forEach(container => {
         const canvasId = container.parentElement.querySelector('canvas').id;
-        // Ricrea il canvas MANTENENDO il suo ID originale
         container.innerHTML = `<canvas id="${canvasId}"></canvas>`;
     });
-    // Cancella i vecchi riferimenti
+    // Cancella i vecchi riferimenti ai grafici.
     Object.keys(chartRefs).forEach(id => delete chartRefs[id]);
 
-
+    // Se non ci sono dati, mostra un messaggio e interrompe l'esecuzione.
     if (!dati || dati.length === 0) {
         console.log("Nessun dato da visualizzare.");
         document.querySelectorAll('.grafico-card').forEach(card => {
@@ -395,6 +382,7 @@ function creaGrafici(dati) {
         return;
     }
 
+    // Prepara le etichette per l'asse X e calcola i limiti degli assi Y.
     const labels = dati.map(d => {
         const date = new Date(d.time);
         date.setHours(date.getHours() + 2); // FIX: Aggiunta di 2 ore
@@ -418,6 +406,7 @@ function creaGrafici(dati) {
         yMaxWind = Math.ceil(Math.max(...winds) + 1);
     }
 
+    // Funzione per generare la configurazione di un grafico a linea.
     const config = (label, data, color, yMin, yMax) => ({
       type: 'line',
       data: {
@@ -445,6 +434,8 @@ function creaGrafici(dati) {
         }
       }
     });
+
+    // Elenco degli ID dei grafici e configurazioni specifiche per ciascuno.
     const ids = ['temp', 'prec', 'wind', 'prob'];
     const configs = {
         'temp': config('Temperatura (°C)', dati.map(d => d.temperature), '#dc3545', yMinTemp, yMaxTemp),
@@ -452,13 +443,16 @@ function creaGrafici(dati) {
         'wind': config('Vento (m/s)', dati.map(d => d.windspeed), '#28a745', yMinWind, yMaxWind),
         'prob': config('Prob. Precipitazione (%)', dati.map(d => d.precipitation_probability), '#198f9b', 0, 100)
     };
+
+    // Modifiche specifiche per il grafico della probabilità di precipitazione (tipo 'bar').
     const probConfig = configs['prob'];
     probConfig.type = 'bar';
     probConfig.data.datasets[0].backgroundColor = '#198f9b';
     delete probConfig.data.datasets[0].tension;
     delete probConfig.data.datasets[0].fill;
+
+    // Crea ogni grafico e configura la sua scrollbar personalizzata.
     ids.forEach(id => {
-        // Questa linea ora funzionerà perché il canvas ha di nuovo il suo ID
         const canvas = document.querySelector(`#${id}`).getContext('2d');
         chartRefs[id] = new Chart(canvas, configs[id]);
         setupCustomScrollbar(chartRefs[id], document.getElementById(`scrollbar-${id}`), dati);

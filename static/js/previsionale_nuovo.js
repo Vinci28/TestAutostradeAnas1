@@ -1,15 +1,21 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Definisce le scale e i colori per le diverse variabili meteo (temperatura, velocità del vento, precipitazioni).
+    // Questo oggetto è fondamentale per colorare le linee sulla mappa e generare la legenda.
     const SCALES = {
         temperature: { unit: '°C', steps: [{ value: -5, color: 'rgb(102, 0, 153)', label: 'Gelo Intenso' }, { value: 0, color: 'rgb(0, 51, 204)', label: 'Gelo Moderato' }, { value: 10, color: 'rgb(51, 153, 255)', label: 'Freddo' }, { value: 25, color: 'rgb(0, 204, 0)', label: 'Normale' }, { value: 35, color: 'rgb(255, 190, 0)', label: 'Caldo' }, { value: Infinity, color: 'rgb(204, 0, 0)', label: 'Molto Caldo' }], labels: ['< -5°C', '-5°C - 0°C', '0°C - 10°C', '10°C - 25°C', '25°C - 35°C', '> 35°C'] },
         windspeed: { unit: 'km/h', steps: [{ value: 20, color: 'rgb(204, 229, 255)', label: 'Assente/Debole' }, { value: 40, color: 'rgb(153, 255, 153)', label: 'Moderato' }, { value: 60, color: 'rgb(255, 255, 102)', label: 'Sostenuto' }, { value: 80, color: 'rgb(255, 153, 51)', label: 'Forte' }, { value: Infinity, color: 'rgb(255, 51, 51)', label: 'Molto Forte' }], labels: ['0-20', '20-40', '40-60', '60-80', '> 80'] },
         precipitation: { unit: 'mm', steps: [{ value: 0.2, color: 'rgb(173, 216, 230)', label: 'Assente' }, { value: 2.0, color: 'rgb(0, 0, 255)', label: 'Debole' }, { value: 10.0, color: 'rgb(0, 128, 0)', label: 'Moderato' }, { value: 25.0, color: 'rgb(255, 255, 0)', label: 'Intenso' }, { value: 50.0, color: 'rgb(255, 165, 0)', label: 'Forte' }, { value: Infinity, color: 'rgb(255, 0, 0)', label: 'Molto Forte' }], labels: ['< 0.2', '0.2-2.0', '2.0-10.0', '10.0-25.0', '25.0-50.0', '> 50.0'] }
     };
+    // Definisce i limiti geografici (lat/lon) per ogni strada. Usato per centrare la mappa.
     const BOUNDS = { A90: [[41.8, 12.3], [42.0, 12.7]], SS51: [[45.8, 12.2], [46.7, 12.4]], SS675: [[42.3, 11.9], [42.7, 12.4]] };
+    // Definisce colori e spessori per le polilinee sulla mappa.
     const COLORS = { DEFAULT: '#808080', SELECTED_BLUE: '#00338D', SELECTED_WEIGHT: 8, DEFAULT_WEIGHT: 5 };
 
+    // Inizializza la mappa Leaflet e il suo motore di rendering.
     const renderer = L.canvas({ padding: 0.5 });
     const map = L.map('map', { preferCanvas: true, renderer, zoomControl: false }).setView([42.5, 12.5], 7);
     L.control.zoom({ position: 'topleft' }).addTo(map);
+    // Definisce i layer di base della mappa disponibili (chiara, standard, satellite).
     const baseMaps = {
         "Mappa Chiara": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map),
         "Mappa Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }),
@@ -17,12 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     L.control.layers(baseMaps, null, { position: 'topleft' }).addTo(map);
 
+    // Variabili globali per lo stato dell'applicazione.
     let allSegments = [], polylines = {}, apiData = {}, times = [], selectedPoly = null;
     let currentVar = 'temperature', currentStrada = 'A90';
     let isPlaying = false, playInterval = null;
     let highlightGroup = L.layerGroup().addTo(map);
     let highlightFill = null;
 
+    // Riferimenti agli elementi DOM principali.
     const loadingEl = document.getElementById('loading');
     const stradaSelect = document.getElementById('stradaSelect');
     const variabileSelect = document.getElementById('variabileSelect');
@@ -32,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeSlider = document.getElementById('timeSlider');
     const btnGrafico = document.getElementById('btnGrafico');
 
+    // Controllo personalizzato di Leaflet per il pulsante "Allarmi".
     const AlertControl = L.Control.extend({
         onAdd: function (map) {
             const container = L.DomUtil.create('div', 'leaflet-control-alerts leaflet-control leaflet-bar');
@@ -41,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
             link.title = 'Visualizza Allarmi';
             const badge = L.DomUtil.create('span', 'alert-badge', link);
             badge.id = 'alert-badge';
+            // Gestisce il click sul pulsante per aprire la pagina degli allarmi in una nuova scheda.
             L.DomEvent.on(link, 'click', L.DomEvent.stop).on(link, 'click', (ev) => {
                 window.open(ev.currentTarget.href, '_blank');
             });
@@ -51,9 +61,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const alertLink = document.getElementById('alert-link');
     const alertBadge = document.getElementById('alert-badge');
 
+    // Funzioni di utilità.
+
+    // Normalizza una stringa chiave per un accesso coerente ai dati.
     const normalizeKey = (str) => str ? str.replace(/[\s._()-]/g, "").toLowerCase() : '';
+
+    // Funzione di debounce per limitare la frequenza con cui viene chiamata una funzione. Utile per la ricerca.
     const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); }; };
 
+    // Parsa una stringa "km+metri" in un singolo valore in metri.
     function parseKm(kmStr) {
         if (!kmStr || typeof kmStr !== 'string') return null;
         const parts = kmStr.split('+');
@@ -64,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return km * 1000 + m;
     }
 
+    // Estrae i marker di inizio e fine chilometro da una stringa del nome del segmento.
     function getKmRange(segmentName) {
         const kmRegex = /Km\s(\d+\+\d{3})/g;
         const matches = [...segmentName.matchAll(kmRegex)];
@@ -74,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { start: Math.min(start, end), end: Math.max(start, end) };
     }
 
+    // Rende la legenda dei colori in base alla variabile attualmente selezionata.
     function renderLegend() {
         const lg = document.getElementById('legend');
         const scale = SCALES[currentVar];
@@ -84,10 +102,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function pausePlayback() { if (!isPlaying) return; isPlaying = false; clearInterval(playInterval); playPauseBtn.innerHTML = '▶'; }
+    // Funzioni per il controllo della riproduzione della timeline.
+    function pausePlayback() {
+        if (!isPlaying) return;
+        isPlaying = false;
+        clearInterval(playInterval);
+        playPauseBtn.innerHTML = '▶';
+    }
+
     function startPlayback() {
         if (isPlaying || times.length === 0) return;
-        isPlaying = true; playPauseBtn.innerHTML = '❚❚';
+        isPlaying = true;
+        playPauseBtn.innerHTML = '❚❚';
         playInterval = setInterval(() => {
             let currentIndex = +timeSlider.value;
             let nextIndex = (currentIndex + 1) % times.length;
@@ -95,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     }
 
+    // Carica in modo asincrono i dati dei segmenti stradali da un file JSON.
     async function fetchSegmentsData() {
         if (allSegments.length > 0) return;
         try {
@@ -106,26 +133,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Cancella e ridisegna le polilinee sulla mappa per la strada corrente.
     function displaySegmentsAndList() {
+        // Rimuove le polilinee esistenti
         Object.values(polylines).forEach(p => map.removeLayer(p));
         polylines = {};
+
         const stradaLower = currentStrada.toLowerCase();
+        // Filtra i segmenti per la strada corrente
         const segmentsToDraw = allSegments.filter(t => t.nome.toLowerCase().includes(stradaLower));
 
+        // Disegna ogni segmento come una polilinea
         segmentsToDraw.forEach(tratto => {
             const normKey = normalizeKey(tratto.nome);
             const poly = L.polyline(tratto.punti.map(p => [p.lat, p.lon]), {
                 renderer, color: COLORS.DEFAULT, weight: COLORS.DEFAULT_WEIGHT,
                 nome: tratto.nome, key: normKey
-            }).addTo(map).bindTooltip(tratto.nome, { direction: 'top', sticky: true }).on('click', (e) => handleSelection(e.target));
+            }).addTo(map)
+            .bindTooltip(tratto.nome, { direction: 'top', sticky: true })
+            .on('click', (e) => handleSelection(e.target));
             polylines[normKey] = poly;
         });
+
         updateSearchList();
+        // Adatta la visuale della mappa ai limiti della strada selezionata
         if (BOUNDS[currentStrada] && !kmSearch.value) {
             map.fitBounds(BOUNDS[currentStrada]);
         }
     }
 
+    // Filtra e aggiorna la lista di ricerca dei segmenti in base all'input dell'utente.
     function updateSearchList() {
         segmentListContainer.innerHTML = '';
         const filterText = kmSearch.value.trim().toLowerCase();
@@ -133,9 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
             segmentListContainer.style.display = 'none';
             return;
         }
+
         const stradaLower = currentStrada.toLowerCase();
         const segmentsForStrada = allSegments.filter(t => t.nome.toLowerCase().includes(stradaLower));
+
+        // Trova i segmenti per corrispondenza del nome
         const textResults = segmentsForStrada.filter(t => t.nome.toLowerCase().includes(filterText));
+
+        // Trova i segmenti per corrispondenza del range di chilometri
         let intelligentResults = [];
         const searchKmRegex = /(?:km\s*)?(\d+\+\d{1,3})/i;
         const searchMatch = filterText.match(searchKmRegex);
@@ -148,10 +190,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+
+        // Combina i risultati e rimuove i duplicati
         const combined = new Map();
         textResults.forEach(t => combined.set(t.nome, t));
         intelligentResults.forEach(t => combined.set(t.nome, t));
         const filteredForList = Array.from(combined.values());
+
         if (filteredForList.length > 0) {
             filteredForList.forEach(tratto => {
                 const div = document.createElement('div');
@@ -160,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.onclick = () => {
                     kmSearch.value = tratto.nome;
                     segmentListContainer.style.display = 'none';
+                    // Trova la polilinea corrispondente e la seleziona
                     const targetPoly = Object.values(polylines).find(p => p.options.nome === tratto.nome);
                     if (targetPoly) {
                         map.fitBounds(targetPoly.getBounds().pad(0.1));
@@ -174,12 +220,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Gestisce la selezione di una polilinea (segmento) sulla mappa.
     function handleSelection(poly) {
         highlightGroup.clearLayers();
         highlightFill = null;
         if (selectedPoly) {
             selectedPoly.setStyle({ opacity: 1 });
         }
+        // Se il segmento selezionato è lo stesso, deselezionalo
         if (selectedPoly === poly) {
             selectedPoly = null;
             kmSearch.value = '';
@@ -187,25 +235,32 @@ document.addEventListener('DOMContentLoaded', () => {
             updateMapColors();
             return;
         }
+
         selectedPoly = poly;
+        // Rende la polilinea originale trasparente per mostrare l'highlight
         poly.setStyle({ opacity: 0 });
         const latlngs = poly.getLatLngs();
         const currentVal = getCurrentValue(poly);
         const initialColor = getColorForValue(currentVal);
+
+        // Aggiunge un bordo blu e un riempimento colorato per l'highlight
         const border = L.polyline(latlngs, { color: COLORS.SELECTED_BLUE, weight: COLORS.SELECTED_WEIGHT, opacity: 1, interactive: false });
         highlightFill = L.polyline(latlngs, { color: initialColor, weight: COLORS.SELECTED_WEIGHT / 2, opacity: 1, interactive: false });
         highlightGroup.addLayer(border).addLayer(highlightFill);
         highlightGroup.bindTooltip(poly.getTooltip().getContent(), { direction: 'top', sticky: true });
+
         kmSearch.value = poly.options.nome;
         btnGrafico.style.display = 'block';
     }
 
+    // Apre la pagina del grafico previsionale per il segmento selezionato.
     window.visualizzaGraficoPrevisionale = function () {
         if (!selectedPoly) { return alert("Seleziona prima un tratto dalla mappa."); }
         const nomeTratto = selectedPoly.options.nome;
         window.open(`/grafico?tratto=${encodeURIComponent(nomeTratto)}&modalita=previsionale`, '_blank');
     }
 
+    // Gestione del polling per gli aggiornamenti automatici dei dati.
     let pollingInterval = null;
     let currentPageTimestamp = null;
 
@@ -230,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const latestTimestamp = data.latest_update;
                         if (new Date(latestTimestamp) > new Date(currentPageTimestamp)) {
                             statusElement.textContent = "Nuovi dati disponibili! Aggiornamento in corso...";
-                            loadData();
+                            loadData(); // Ricarica i dati se più recenti
                         } else {
                             statusElement.textContent = "I dati visualizzati sono i più recenti.";
                         }
@@ -246,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pollingInterval = setInterval(check, POLLING_INTERVAL_MS);
     }
 
+    // Carica i dati meteo previsionali dall'API.
     async function loadData() {
         pausePlayback();
         loadingEl.style.display = 'block';
@@ -257,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (json.errore) throw new Error(json.errore);
 
             const lastUpdate = json.last_update_timestamp;
+            // Controlla se i dati sono già aggiornati per evitare un ricaricamento inutile.
             if (lastUpdate && lastUpdate === currentPageTimestamp) {
                 document.getElementById('update-status').textContent = "I dati visualizzati sono i più recenti.";
                 loadingEl.style.display = 'none';
@@ -265,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const allTimes = json.times || [];
             const now = new Date();
+            // Limita la timeline a 73 ore dal momento attuale
             const limitTime = new Date(now.getTime() + 73 * 60 * 60 * 1000);
             times = allTimes.filter(t => new Date(t) <= limitTime);
             apiData = json.data || {};
@@ -281,11 +339,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Rende la timeline grafica per la selezione dell'orario.
     function renderTimeline(startIndex = 0) {
         const dayLabelsContainer = document.getElementById('dayLabels');
         dayLabelsContainer.innerHTML = '';
 
         if (times.length === 0) {
+            // Nasconde la timeline se non ci sono dati.
             timeSlider.style.display = 'none';
             document.getElementById('dayLabels-wrapper').style.display = 'none';
             playPauseBtn.disabled = true;
@@ -306,6 +366,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const isThreeHourMark = currentTime.getHours() % 3 === 0;
             const markerContainer = document.createElement('div');
             markerContainer.className = 'timeline-marker';
+
+            // Aggiunge l'etichetta del giorno se cambia il giorno.
             if (isNewDay) {
                 const dayLabel = document.createElement('div');
                 dayLabel.className = 'timeline-day-label';
@@ -313,19 +375,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 dayLabel.textContent = currentTime.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
                 markerContainer.appendChild(dayLabel);
             }
+
+            // Aggiunge i "tick" e le etichette delle ore.
             const tickContainer = document.createElement('div');
             tickContainer.className = 'timeline-tick-container';
             if (isThreeHourMark) {
                 const hourLabel = document.createElement('div');
-
                 hourLabel.className = 'timeline-hour-label';
                 hourLabel.textContent = currentTime.getHours().toString().padStart(2, '0');
                 const tick = document.createElement('div');
-
                 tick.className = 'timeline-tick major';
                 tickContainer.appendChild(tick);
                 tickContainer.appendChild(hourLabel);
-
             } else {
                 const tick = document.createElement('div');
                 tick.className = 'timeline-tick';
@@ -341,17 +402,22 @@ document.addEventListener('DOMContentLoaded', () => {
         timeSlider.value = startIndex;
     }
 
+    // Aggiorna la mappa in base all'indice temporale selezionato.
     function updateMap(idx, updateSlider = false) {
         if (!times || !times[idx]) return;
         if (updateSlider) timeSlider.value = idx;
         const dt = new Date(times[idx]);
         document.getElementById('currentTime').textContent = dt.toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+
+        // Evidenzia l'etichetta del giorno corrente.
         document.querySelectorAll('.timeline-day-label').forEach(el => el.classList.remove('active'));
         const activeDayLabel = document.getElementById(`day-label-${dt.getDate()}`);
         if (activeDayLabel) activeDayLabel.classList.add('active');
+
         updateMapColors();
     }
 
+    // Aggiorna i colori di tutte le polilinee sulla mappa in base al valore meteo attuale.
     function updateMapColors() {
         Object.values(polylines).forEach(poly => {
             if (poly !== selectedPoly) {
@@ -359,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePolylineColor(poly, val);
             }
         });
+        // Aggiorna il riempimento e il tooltip del segmento selezionato.
         if (selectedPoly) {
             const val = getCurrentValue(selectedPoly);
             const newColor = getColorForValue(val);
@@ -371,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Costruisce il testo del tooltip per una polilinea.
     function buildTooltipText(poly, val) {
         const varLabel = variabileSelect.selectedOptions[0].text.split(' (')[0];
         const unit = SCALES[currentVar].unit;
@@ -378,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<b>${poly.options.nome}</b><br>${varLabel}: ${valueText}`;
     }
 
+    // Aggiorna il colore e il tooltip di una singola polilinea.
     function updatePolylineColor(poly, val) {
         const tooltipText = buildTooltipText(poly, val);
         poly.setTooltipContent(tooltipText);
@@ -385,6 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         poly.setStyle({ color: color, weight: COLORS.DEFAULT_WEIGHT, opacity: 1 });
     }
 
+    // Ottiene il valore meteo corrente per un segmento specifico.
     function getCurrentValue(poly) {
         const idx = +timeSlider.value;
         if (!times[idx] || !apiData) return null;
@@ -395,6 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return recordForTime ? recordForTime[currentVar] : null;
     }
 
+    // Restituisce il colore appropriato in base a un valore numerico.
     function getColorForValue(v) {
         const sc = SCALES[currentVar];
         if (v === null || v === undefined) return COLORS.DEFAULT;
@@ -402,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return sc.steps[sc.steps.length - 1].color;
     }
 
+    // Controlla la presenza di allarmi e aggiorna il badge.
     async function checkForAlerts() {
         try {
             const res = await fetch(`/api/allarmi?strada=${currentStrada}`);
@@ -419,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Gestore dell'evento di cambio della strada.
     async function handleStradaChange() {
         pausePlayback();
         if (pollingInterval) clearInterval(pollingInterval);
@@ -434,6 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await checkForAlerts();
     }
 
+    // Gestore dell'evento di cambio della variabile meteo.
     function handleVariabileChange() {
         pausePlayback();
         currentVar = variabileSelect.value;
@@ -441,6 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMapColors();
     }
 
+    // Assegna gli event listener agli elementi di interfaccia.
     kmSearch.addEventListener('input', debounce(updateSearchList, 300));
     kmSearch.addEventListener('focus', updateSearchList);
     document.addEventListener('click', (e) => {
@@ -454,6 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playPauseBtn.onclick = () => { isPlaying ? pausePlayback() : startPlayback(); };
     timeSlider.oninput = debounce(e => { pausePlayback(); updateMap(+e.target.value); }, 50);
 
+    // Funzione di inizializzazione asincrona.
     (async () => {
         await fetchSegmentsData();
         renderLegend();
