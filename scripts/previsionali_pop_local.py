@@ -9,7 +9,6 @@ import base64
 
 # --- CONFIGURAZIONE LOCALE ---
 DBFS_BASE_FOLDER = "./download_previsionali"  # cartella locale con subdirectory
-TARGET_MINUTE = 15
 
 # --- CONFIGURAZIONE DATABASE POSTGRESQL ---
 DB_CONFIG = {
